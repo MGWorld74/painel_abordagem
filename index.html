@@ -61,6 +61,10 @@
         .btn-submit:hover {
             background-color: #0056b3;
         }
+        .btn-submit:disabled {
+            opacity: 0.7;
+            cursor: default;
+        }
         .links {
             margin-top: 15px;
             text-align: center;
@@ -81,6 +85,7 @@
         }
         .msg-erro { color: #d9534f; }
         .msg-sucesso { color: #28a745; }
+        .msg-aviso { color: #b7791f; }
         .form-section { display: none; }
         .form-section.active { display: block; }
     </style>
@@ -102,7 +107,7 @@
                 <input type="password" id="senha" required>
             </div>
             <button type="submit" id="btn-login" class="btn-submit">Entrar</button>
-            <div id="msg-login" class="msg msg-erro">Utilizador/Palavra-passe incorretos ou conta não aprovada.</div>
+            <div id="msg-login" class="msg"></div>
         </form>
         <div class="links">
             <a href="#" onclick="mostrarSessao('sec-registro')">Criar conta / Criar senha</a>
@@ -136,8 +141,6 @@
     // CONFIGURAÇÃO DO SUPABASE
     // =========================================================================
     const SUPABASE_URL = 'https://jvjfpxrknggeodjgamyu.supabase.co';
-    
-    // COLE A SUA CHAVE DENTRO DAS ASPAS ABAIXO:
     const SUPABASE_ANON_KEY = 'sb_publishable_yxHF_N1gjdGoHMEoM5GF2w_QVMzzMF0';
 
     const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -149,56 +152,104 @@
         document.getElementById(idSessao).classList.add('active');
     }
 
-    // Processar criação de conta pelo próprio utilizador
+    // Mostrar mensagem (tipo: 'erro' | 'sucesso' | 'aviso')
+    function mostrarMsg(el, tipo, texto) {
+        el.className = 'msg msg-' + tipo;
+        el.innerText = texto;
+        el.style.display = 'block';
+    }
+
+    // Consulta na tabela "perfis" se a conta foi aprovada pelo administrador.
+    // Retorna true (aprovada), false (pendente) ou null (erro na consulta).
+    async function contaAprovada(userId) {
+        const { data, error } = await _supabase
+            .from('perfis')
+            .select('aprovado')
+            .eq('id', userId)
+            .maybeSingle();
+        if (error) return null;
+        return data ? data.aprovado === true : false;
+    }
+
+    // Se já existe sessão de uma conta aprovada, segue direto para o painel
+    (async function verificarSessaoExistente() {
+        const { data: { session } } = await _supabase.auth.getSession();
+        if (session && (await contaAprovada(session.user.id)) === true) {
+            window.location.replace('painel.html');
+        }
+    })();
+
+    // Criação de conta pelo próprio utilizador (fica pendente até ser aprovada)
     async function cadastrarUsuario(event) {
         event.preventDefault();
-        const email = document.getElementById('reg-email').value;
+        const email = document.getElementById('reg-email').value.trim();
         const password = document.getElementById('reg-senha').value;
         const msg = document.getElementById('msg-reg');
         const btn = document.getElementById('btn-registro');
 
         btn.disabled = true;
-        btn.innerText = "A processar...";
+        btn.innerText = 'A processar...';
+        msg.style.display = 'none';
 
         const { data, error } = await _supabase.auth.signUp({ email, password });
 
         if (error) {
-            msg.className = 'msg msg-erro';
-            msg.innerText = 'Erro ao cadastrar: ' + error.message;
+            mostrarMsg(msg, 'erro', 'Erro ao cadastrar: ' + error.message);
         } else {
-            msg.className = 'msg msg-sucesso';
-            msg.innerText = 'Conta criada! Aguarde a aprovação do administrador para aceder.';
+            // Se o Supabase abriu sessão automaticamente, encerra: a conta ainda não foi aprovada
+            if (data.session) await _supabase.auth.signOut();
+
+            const textoConfirmar = data.session
+                ? ''
+                : ' Confirme também o seu e-mail, se receber uma mensagem de confirmação.';
+            mostrarMsg(msg, 'sucesso',
+                'Conta criada! Aguarde a aprovação do administrador para aceder.' + textoConfirmar);
             document.getElementById('reg-email').value = '';
             document.getElementById('reg-senha').value = '';
         }
 
-        msg.style.display = 'block';
         btn.disabled = false;
-        btn.innerText = "Cadastrar";
+        btn.innerText = 'Cadastrar';
     }
 
-    // Processar Login no Supabase
+    // Login: só entra no painel quem tiver a conta aprovada
     async function fazerLogin(event) {
         event.preventDefault();
-        const email = document.getElementById('email').value;
+        const email = document.getElementById('email').value.trim();
         const password = document.getElementById('senha').value;
         const msg = document.getElementById('msg-login');
         const btn = document.getElementById('btn-login');
 
         btn.disabled = true;
-        btn.innerText = "A verificar...";
+        btn.innerText = 'A verificar...';
         msg.style.display = 'none';
 
         const { data, error } = await _supabase.auth.signInWithPassword({ email, password });
 
         if (error) {
-            msg.style.display = 'block';
+            if (/not confirmed/i.test(error.message)) {
+                mostrarMsg(msg, 'aviso', 'Confirme o seu e-mail antes de entrar.');
+            } else {
+                mostrarMsg(msg, 'erro', 'E-mail ou palavra-passe incorretos.');
+            }
         } else {
-            window.location.href = "painel.html";
+            const aprovada = await contaAprovada(data.user.id);
+
+            if (aprovada === true) {
+                window.location.href = 'painel.html';
+                return;
+            }
+
+            await _supabase.auth.signOut();
+            if (aprovada === false) {
+                mostrarMsg(msg, 'aviso', 'A sua conta está pendente de aprovação pelo administrador.');
+            } else {
+                mostrarMsg(msg, 'erro', 'Não foi possível verificar a sua conta. Tente novamente.');
+            }
         }
 
         btn.disabled = false;
-        btn.innerText = "Entrar";
+        btn.innerText = 'Entrar';
     }
 </script>
 
