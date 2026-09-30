@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acesso ao Sistema</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-image: url('inicial.jpg');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .login-card {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            width: 320px;
+        }
+        .login-card h2 {
+            margin-bottom: 20px;
+            color: #333;
+            text-align: center;
+        }
+        .form-group {
+            margin-bottom: 12px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 4px;
+            color: #666;
+            font-size: 14px;
+        }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .btn-submit {
+            width: 100%;
+            padding: 10px;
+            background-color: #007bff;
+            border: none;
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 10px;
+        }
+        .btn-submit:hover {
+            background-color: #0056b3;
+        }
+        .links {
+            margin-top: 15px;
+            text-align: center;
+            font-size: 13px;
+        }
+        .links a {
+            color: #007bff;
+            text-decoration: none;
+            margin: 0 5px;
+        }
+        .links a:hover {
+            text-decoration: underline;
+        }
+        .msg {
+            font-size: 13px;
+            margin-top: 10px;
+            text-align: center;
+            display: none;
+        }
+        .msg-erro { color: #d9534f; }
+        .msg-sucesso { color: #28a745; }
+        .form-section { display: none; }
+        .form-section.active { display: block; }
+    </style>
+</head>
+<body>
+
+<div class="login-card">
+
+    <!-- FORMULÁRIO DE LOGIN -->
+    <div id="sec-login" class="form-section active">
+        <h2>Login</h2>
+        <form onsubmit="fazerLogin(event)">
+            <div class="form-group">
+                <label for="usuario">Utilizador</label>
+                <input type="text" id="usuario" required>
+            </div>
+            <div class="form-group">
+                <label for="senha">Palavra-passe</label>
+                <input type="password" id="senha" required>
+            </div>
+            <button type="submit" class="btn-submit">Entrar</button>
+            <div id="erro-login" class="msg msg-erro">Utilizador ou palavra-passe incorretos!</div>
+        </form>
+        <div class="links">
+            <a href="#" onclick="mostrarSessao('sec-registro')">Criar Conta</a> | 
+            <a href="#" onclick="mostrarSessao('sec-recuperar')">Esqueceu a senha?</a>
+        </div>
+    </div>
+
+    <!-- FORMULÁRIO DE REGISTO -->
+    <div id="sec-registro" class="form-section">
+        <h2>Criar Conta</h2>
+        <form onsubmit="cadastrarUsuario(event)">
+            <div class="form-group">
+                <label for="reg-usuario">Utilizador</label>
+                <input type="text" id="reg-usuario" required>
+            </div>
+            <div class="form-group">
+                <label for="reg-senha">Palavra-passe</label>
+                <input type="password" id="reg-senha" required>
+            </div>
+            <div class="form-group">
+                <label for="reg-pergunta">Pergunta de Segurança</label>
+                <select id="reg-pergunta" required>
+                    <option value="cor">Qual é a sua cor favorita?</option>
+                    <option value="animal">Qual o nome do seu primeiro animal de estimação?</option>
+                    <option value="cidade">Em que cidade nasceu?</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="reg-resposta">Resposta de Segurança</label>
+                <input type="text" id="reg-resposta" required>
+            </div>
+            <button type="submit" class="btn-submit">Cadastrar</button>
+            <div id="msg-reg" class="msg"></div>
+        </form>
+        <div class="links">
+            <a href="#" onclick="mostrarSessao('sec-login')">Voltar ao Login</a>
+        </div>
+    </div>
+
+    <!-- FORMULÁRIO DE RECUPERAÇÃO -->
+    <div id="sec-recuperar" class="form-section">
+        <h2>Recuperar Senha</h2>
+        <form onsubmit="recuperarSenha(event)">
+            <div class="form-group">
+                <label for="rec-usuario">Utilizador</label>
+                <input type="text" id="rec-usuario" required>
+            </div>
+            <div class="form-group">
+                <label for="rec-pergunta">Pergunta de Segurança</label>
+                <select id="rec-pergunta" required>
+                    <option value="cor">Qual é a sua cor favorita?</option>
+                    <option value="animal">Qual o nome do seu primeiro animal de estimação?</option>
+                    <option value="cidade">Em que cidade nasceu?</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="rec-resposta">Sua Resposta</label>
+                <input type="text" id="rec-resposta" required>
+            </div>
+            <div class="form-group">
+                <label for="rec-nova-senha">Nova Palavra-passe</label>
+                <input type="password" id="rec-nova-senha" required>
+            </div>
+            <button type="submit" class="btn-submit">Redefinir Senha</button>
+            <div id="msg-rec" class="msg"></div>
+        </form>
+        <div class="links">
+            <a href="#" onclick="mostrarSessao('sec-login')">Voltar ao Login</a>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    // Função para alternar entre as telas
+    function mostrarSessao(idSessao) {
+        document.querySelectorAll('.form-section').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.msg').forEach(el => el.style.display = 'none');
+        document.getElementById(idSessao).classList.add('active');
+    }
+
+    // Obter lista de utilizadores guardada
+    function obterUsuarios() {
+        return JSON.parse(localStorage.getItem('usuarios_db')) || {};
+    }
+
+    // Cadastrar novo utilizador
+    function cadastrarUsuario(event) {
+        event.preventDefault();
+        const user = document.getElementById('reg-usuario').value.trim();
+        const pass = document.getElementById('reg-senha').value;
+        const pergunta = document.getElementById('reg-pergunta').value;
+        const resposta = document.getElementById('reg-resposta').value.trim().toLowerCase();
+        const msg = document.getElementById('msg-reg');
+
+        let usuarios = obterUsuarios();
+
+        if (usuarios[user]) {
+            msg.className = 'msg msg-erro';
+            msg.innerText = 'Utilizador já existe!';
+            msg.style.display = 'block';
+            return;
+        }
+
+        usuarios[user] = { senha: pass, pergunta: pergunta, resposta: resposta };
+        localStorage.setItem('usuarios_db', JSON.stringify(usuarios));
+
+        msg.className = 'msg msg-sucesso';
+        msg.innerText = 'Conta criada com sucesso!';
+        msg.style.display = 'block';
+
+        setTimeout(() => {
+            mostrarSessao('sec-login');
+        }, 1500);
+    }
+
+    // Fazer login
+    function fazerLogin(event) {
+        event.preventDefault();
+        const user = document.getElementById('usuario').value.trim();
+        const pass = document.getElementById('senha').value;
+        const erro = document.getElementById('erro-login');
+
+        let usuarios = obterUsuarios();
+
+        if (usuarios[user] && usuarios[user].senha === pass) {
+            window.location.href = "painel.html";
+        } else {
+            erro.style.display = 'block';
+        }
+    }
+
+    // Recuperar e redefinir palavra-passe
+    function recuperarSenha(event) {
+        event.preventDefault();
+        const user = document.getElementById('rec-usuario').value.trim();
+        const pergunta = document.getElementById('rec-pergunta').value;
+        const resposta = document.getElementById('rec-resposta').value.trim().toLowerCase();
+        const novaSenha = document.getElementById('rec-nova-senha').value;
+        const msg = document.getElementById('msg-rec');
+
+        let usuarios = obterUsuarios();
+
+        if (usuarios[user] && usuarios[user].pergunta === pergunta && usuarios[user].resposta === resposta) {
+            usuarios[user].senha = novaSenha;
+            localStorage.setItem('usuarios_db', JSON.stringify(usuarios));
+
+            msg.className = 'msg msg-sucesso';
+            msg.innerText = 'Senha alterada com sucesso!';
+            msg.style.display = 'block';
+
+            setTimeout(() => {
+                mostrarSessao('sec-login');
+            }, 1500);
+        } else {
+            msg.className = 'msg msg-erro';
+            msg.innerText = 'Dados de verificação incorretos!';
+            msg.style.display = 'block';
+        }
+    }
+</script>
+
+</body>
+</html>
