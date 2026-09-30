@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Acesso ao Sistema</title>
+    <!-- SDK Oficial do Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -87,44 +89,40 @@
 
 <div class="login-card">
 
-    <!-- SESSÃO DE LOGIN -->
+    <!-- FORMULÁRIO DE LOGIN -->
     <div id="sec-login" class="form-section active">
         <h2>Login</h2>
         <form onsubmit="fazerLogin(event)">
             <div class="form-group">
-                <label for="usuario">Utilizador</label>
-                <input type="text" id="usuario" required>
+                <label for="email">E-mail</label>
+                <input type="email" id="email" required>
             </div>
             <div class="form-group">
                 <label for="senha">Palavra-passe</label>
                 <input type="password" id="senha" required>
             </div>
-            <button type="submit" class="btn-submit">Entrar</button>
-            <div id="erro-login" class="msg msg-erro">Utilizador ou palavra-passe incorretos!</div>
+            <button type="submit" id="btn-login" class="btn-submit">Entrar</button>
+            <div id="msg-login" class="msg msg-erro">Utilizador/Palavra-passe incorretos ou conta não aprovada.</div>
         </form>
         <div class="links">
-            <a href="#" onclick="mostrarSessao('sec-solicitar')">Não tem conta? Solicite acesso</a>
+            <a href="#" onclick="mostrarSessao('sec-registro')">Criar conta / Criar senha</a>
         </div>
     </div>
 
-    <!-- SESSÃO DE SOLICITAÇÃO DE ACESSO -->
-    <div id="sec-solicitar" class="form-section">
-        <h2>Solicitar Acesso</h2>
-        <form id="form-solicitacao" onsubmit="enviarSolicitacao(event)">
+    <!-- FORMULÁRIO DE REGISTO -->
+    <div id="sec-registro" class="form-section">
+        <h2>Criar Conta</h2>
+        <form onsubmit="cadastrarUsuario(event)">
             <div class="form-group">
-                <label for="sol-nome">Nome Completo</label>
-                <input type="text" name="nome" id="sol-nome" required>
+                <label for="reg-email">Seu E-mail</label>
+                <input type="email" id="reg-email" required>
             </div>
             <div class="form-group">
-                <label for="sol-email">E-mail para resposta</label>
-                <input type="email" name="email" id="sol-email" required>
+                <label for="reg-senha">Crie uma Palavra-passe</label>
+                <input type="password" id="reg-senha" minlength="6" required>
             </div>
-            <div class="form-group">
-                <label for="sol-motivo">Motivo / Empresa</label>
-                <input type="text" name="motivo" id="sol-motivo" placeholder="Ex: Acesso ao setor X" required>
-            </div>
-            <button type="submit" id="btn-solicitar" class="btn-submit">Enviar Pedido</button>
-            <div id="msg-sol" class="msg"></div>
+            <button type="submit" id="btn-registro" class="btn-submit">Cadastrar</button>
+            <div id="msg-reg" class="msg"></div>
         </form>
         <div class="links">
             <a href="#" onclick="mostrarSessao('sec-login')">Voltar ao Login</a>
@@ -134,70 +132,73 @@
 </div>
 
 <script>
-    // LISTA DE UTILIZADORES APROVADOS POR SI
-    // Adicione os utilizadores aprovados nesta lista:
-    const usuariosAprovados = {
-        "admin": "1234",
-        "joao": "senha2026"
-    };
+    // =========================================================================
+    // CONFIGURAÇÃO DO SUPABASE
+    // =========================================================================
+    const SUPABASE_URL = 'https://jvjfpxrknggeodjgamyu.supabase.co';
+    
+    // COLE A SUA CHAVE DENTRO DAS ASPAS ABAIXO:
+    const SUPABASE_ANON_KEY = 'sb_publishable_yxHF_N1gjdGoHMEoM5GF2w_QVMzzMF0';
 
-    // Alternar visibilidade entre Login e Solicitação
+    const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // Alternar entre telas
     function mostrarSessao(idSessao) {
         document.querySelectorAll('.form-section').forEach(el => el.classList.remove('active'));
         document.querySelectorAll('.msg').forEach(el => el.style.display = 'none');
         document.getElementById(idSessao).classList.add('active');
     }
 
-    // Processar Login
-    function fazerLogin(event) {
+    // Processar criação de conta pelo próprio utilizador
+    async function cadastrarUsuario(event) {
         event.preventDefault();
-        const user = document.getElementById('usuario').value.trim();
-        const pass = document.getElementById('senha').value;
-        const erro = document.getElementById('erro-login');
+        const email = document.getElementById('reg-email').value;
+        const password = document.getElementById('reg-senha').value;
+        const msg = document.getElementById('msg-reg');
+        const btn = document.getElementById('btn-registro');
 
-        if (usuariosAprovados[user] && usuariosAprovados[user] === pass) {
-            window.location.href = "painel.html";
+        btn.disabled = true;
+        btn.innerText = "A processar...";
+
+        const { data, error } = await _supabase.auth.signUp({ email, password });
+
+        if (error) {
+            msg.className = 'msg msg-erro';
+            msg.innerText = 'Erro ao cadastrar: ' + error.message;
         } else {
-            erro.style.display = 'block';
+            msg.className = 'msg msg-sucesso';
+            msg.innerText = 'Conta criada! Aguarde a aprovação do administrador para aceder.';
+            document.getElementById('reg-email').value = '';
+            document.getElementById('reg-senha').value = '';
         }
+
+        msg.style.display = 'block';
+        btn.disabled = false;
+        btn.innerText = "Cadastrar";
     }
 
-    // Enviar Solicitação para o seu E-mail via Formspree
-    async function enviarSolicitacao(event) {
+    // Processar Login no Supabase
+    async function fazerLogin(event) {
         event.preventDefault();
-        const form = document.getElementById('form-solicitacao');
-        const btn = document.getElementById('btn-solicitar');
-        const msg = document.getElementById('msg-sol');
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('senha').value;
+        const msg = document.getElementById('msg-login');
+        const btn = document.getElementById('btn-login');
 
-        btn.innerText = "A enviar...";
         btn.disabled = true;
+        btn.innerText = "A verificar...";
+        msg.style.display = 'none';
 
-        // SUBSTITUA O LINK ABAIXO PELO SEU LINK DO FORMSPREE:
-        const endpointFormspree = 'https://formspree.io/f/xnpnrlke';
+        const { data, error } = await _supabase.auth.signInWithPassword({ email, password });
 
-        try {
-            const response = await fetch(endpointFormspree, {
-                method: 'POST',
-                body: new FormData(form),
-                headers: { 'Accept': 'application/json' }
-            });
-
-            if (response.ok) {
-                msg.className = 'msg msg-sucesso';
-                msg.innerText = 'Solicitação enviada com sucesso! Aguarde a aprovação por e-mail.';
-                msg.style.display = 'block';
-                form.reset();
-            } else {
-                throw new Error('Erro ao enviar');
-            }
-        } catch (error) {
-            msg.className = 'msg msg-erro';
-            msg.innerText = 'Erro ao enviar o pedido. Tente novamente.';
+        if (error) {
             msg.style.display = 'block';
-        } finally {
-            btn.innerText = "Enviar Pedido";
-            btn.disabled = false;
+        } else {
+            window.location.href = "painel.html";
         }
+
+        btn.disabled = false;
+        btn.innerText = "Entrar";
     }
 </script>
 
