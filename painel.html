@@ -843,7 +843,7 @@ body.dark .crono-ano-caixa { background: #2a2a2a; border-color: #555; }
 <span id="contagemFiltroCNPJ" class="filtro-cnpj-contagem"></span>
 <span id="percentualFiltroCNPJ" class="filtro-cnpj-contagem filtro-cnpj-percentual" style="display:none;"></span>
 </div>
-<input type="file" id="arquivoExcel" accept=".xlsx,.xls" style="display:none" aria-label="Selecionar arquivo de planilha (.xlsx ou .xls)" onchange="importarPlanilha(event)">
+<input type="file" id="arquivoExcel" accept=".xlsx,.xls,.csv" style="display:none" aria-label="Selecionar arquivo de planilha (.xlsx, .xls ou .csv)" onchange="importarPlanilha(event)">
 </div>
 <span class="relogio-painel" id="relogioPainel" aria-live="polite"></span>
 </div>
@@ -2161,7 +2161,7 @@ body.dark .crono-ano-caixa { background: #2a2a2a; border-color: #555; }
     try {
       const salvos = JSON.parse(localStorage.getItem('dadosImportadosCNPJ'));
       if (Array.isArray(salvos) && salvos.length) {
-        dadosImportados = salvos;
+        dadosImportados = normalizarRegistrosPlanilha(salvos);
         exibirCNPJs(salvos);
       }
     } catch (e) {}
@@ -2622,6 +2622,54 @@ body.dark .crono-ano-caixa { background: #2a2a2a; border-color: #555; }
     atualizarTextoMensagem();
     atualizarContabTipo();
   }
+  // Normaliza planilhas (.xls, .xlsx ou .csv) para o mesmo padrão de colunas/valores
+  const MAPA_COLUNAS_PLANILHA = {
+    'cnpj': 'CNPJ', 'razaosocial': 'Razão Social', 'nomefantasia': 'Nome Fantasia', 'nomeagencia': 'Agência',
+    'ufdauc': 'UF', 'municipiodauc': 'Municipio', 'localidadedauc': 'Localidade', 'poselecao': 'PO Sel.',
+    'vipespecial': 'Vip Especial', 'empresanova': 'Empresa Nova', 'statusempresa': 'Status da Empresa',
+    'enviapiaprod': 'Env. PIA Prod.', 'statusprd': 'Status PiaProduto', 'fac': 'FAC', 'statusfac': 'Status da FAC',
+    'emailinvalido': 'E-mail Invalido', 'formaabordagem': 'Forma de Abordagem', 'comemail': 'Com e-mail?',
+    'destinomaterial': 'Destino do Material', 'statusenvio': 'Status do Envio do E-mail',
+    'nomeresponsavelabordagem': 'Responsável pela Abordagem',
+    'nomeresponsavelacompanhamentocoleta': 'Responsável pelo acompanhamento da coleta',
+    'dataabordagem': 'Data da Abordagem', 'dataentregamaterial': 'Data da Entrega',
+    'diasprevisaodevolucao': 'Dias Prev. Dev.', 'dataprevisaodevolucao': 'Data Prev. Dev.',
+    'datadevolucao': 'Data da Devolução', 'cnae': 'CNAE', 'cepuc': 'CEP da UC', 'bairrouc': 'Bairro da UC',
+    'pesquisasconjunturais': 'Conjunturais', 'nomecontato': 'Nome do Contato',
+    'telefonecontato': 'Telefone do Contato', 'emailcontato': 'E-mail do Contato',
+    'documentocontador': 'Documento do Contador/Grupo',
+    'nomeescritoriocontador': 'Contador Tercerizado/GrupoEmpresarial', 'endereco': 'Endereço da UC',
+  };
+  const COLUNAS_DATA_PLANILHA = ['Data da Abordagem', 'Data da Entrega', 'Data Prev. Dev.', 'Data da Devolução'];
+  function normalizarValorDataPlanilha(valor) {
+    if (typeof valor === 'number' && isFinite(valor)) {
+      const d = new Date(Math.round((Math.floor(valor) - 25569) * 86400000));
+      const p = (n) => String(n).padStart(2, '0');
+      return p(d.getUTCDate()) + '/' + p(d.getUTCMonth() + 1) + '/' + d.getUTCFullYear();
+    }
+    const m = String(valor == null ? '' : valor).trim().match(/^(\d{2}\/\d{2}\/\d{4})(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?$/);
+    return m ? m[1] : valor;
+  }
+  function normalizarRegistrosPlanilha(registros) {
+    return registros.map((reg) => {
+      const novo = {};
+      Object.keys(reg).forEach((chave) => {
+        const chaveSimples = chave.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+        const nome = MAPA_COLUNAS_PLANILHA[chaveSimples] || chave;
+        let valor = reg[chave];
+        if (nome === 'CNPJ') {
+          const dig = String(valor == null ? '' : valor).replace(/\D/g, '');
+          if (dig.length === 14) valor = dig.substring(0, 8) + '/' + dig.substring(8, 12) + '-' + dig.substring(12);
+        } else if (nome === 'Agência') {
+          valor = String(valor == null ? '' : valor).replace(/^[A-Za-z]{2}\d+\s*-\s*/, '');
+        } else if (COLUNAS_DATA_PLANILHA.includes(nome)) {
+          valor = normalizarValorDataPlanilha(valor);
+        }
+        if (!(nome in novo) || novo[nome] === '') novo[nome] = valor;
+      });
+      return novo;
+    });
+  }
   function importarPlanilha(event) {
     const arquivo = event.target.files[0];
     if (!arquivo) return;
@@ -2630,15 +2678,17 @@ body.dark .crono-ano-caixa { background: #2a2a2a; border-color: #555; }
       event.target.value = '';
       return;
     }
+    const ehCsv = /\.csv$/i.test(arquivo.name);
     const leitor = new FileReader();
     leitor.onload = function (e) {
       try {
-        const dados = new Uint8Array(e.target.result);
-        const workbook = XLSX.read(dados, { type: 'array' });
+        const workbook = ehCsv
+          ? XLSX.read(String(e.target.result).replace(/^\uFEFF/, ''), { type: 'string', raw: true })
+          : XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
         const nomeAba = workbook.SheetNames[0];
         if (!nomeAba) throw new Error('A planilha não contém nenhuma aba.');
         const planilha = workbook.Sheets[nomeAba];
-        const novosDados = XLSX.utils.sheet_to_json(planilha, { defval: '' });
+        const novosDados = normalizarRegistrosPlanilha(XLSX.utils.sheet_to_json(planilha, { defval: '' }));
         const possuiColunaCNPJ = novosDados.some((registro) =>
           Object.keys(registro).some((chave) => chave.trim().toLowerCase() === 'cnpj'),
         );
@@ -2700,7 +2750,8 @@ body.dark .crono-ano-caixa { background: #2a2a2a; border-color: #555; }
       mostrarToast('Ocorreu um erro ao tentar ler o arquivo.', 'aviso');
       event.target.value = '';
     };
-    leitor.readAsArrayBuffer(arquivo);
+    if (ehCsv) leitor.readAsText(arquivo, 'UTF-8');
+    else leitor.readAsArrayBuffer(arquivo);
   }
   let tipoMensagemAtual = null;
   const MARCADOR_EMPRESA_INICIO = '\u0001EMP_INICIO\u0001';
