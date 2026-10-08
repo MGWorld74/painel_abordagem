@@ -478,7 +478,7 @@
     coringaReservado();
   }
   function mapaAgencias() {
-    abrir('https://www.google.com/maps/d/edit?mid=1G3myuJV9W_gZhQ1tEL0gItBPDviOWU0&usp=sharing');
+    abrir('https://www.google.com/maps/d/edit?mid=1yGEvkctxrJDCbj-d_GZ1LgaBwDw15o4&usp=sharing');
   }
   function correios() {
     abrir('https://rastreamento.correios.com.br/app/index.php');
