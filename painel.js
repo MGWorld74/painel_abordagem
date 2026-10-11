@@ -961,7 +961,9 @@
             'NOTIFICADA',
             'TODAS',
           ]
-        : ['PAC', 'PAIC', 'PAS', 'PIA', 'TODAS'];
+        : tipo === 'responsavel'
+          ? obterResponsaveisAbordagemUnicos().concat(['TODAS'])
+          : ['PAC', 'PAIC', 'PAS', 'PIA', 'TODAS'];
     const optPlaceholder = document.createElement('option');
     optPlaceholder.value = '';
     optPlaceholder.textContent = 'Selecione...';
@@ -982,6 +984,21 @@
     listaCNPJsAtual = todosCNPJsImportados.slice();
     paginaAtualCNPJ = 1;
     renderizarPaginaCNPJs();
+  }
+  // Lista de nomes únicos (sem repetir) da coluna "Responsável pela Abordagem" (.xlsx) /
+  // "NomeResponsavelAbordagem" (.csv), já unificadas pela normalização da planilha, em ordem alfabética.
+  function obterResponsaveisAbordagemUnicos() {
+    const vistos = new Set();
+    const nomes = [];
+    dadosImportados.forEach((registro) => {
+      const nome = obterValorColunaExata(registro, 'Responsável pela Abordagem');
+      if (!nome) return;
+      const chave = nome.replace(/\s+/g, ' ').trim().toLowerCase();
+      if (!chave || vistos.has(chave)) return;
+      vistos.add(chave);
+      nomes.push(nome.replace(/\s+/g, ' ').trim());
+    });
+    return nomes.sort((a, b) => a.localeCompare(b, 'pt-BR', { sensitivity: 'base' }));
   }
   function obterValorColunaExata(registro, nomeColuna) {
     for (const key of Object.keys(registro)) {
@@ -1021,13 +1038,18 @@
       }
       return;
     }
-    const nomeColuna = tipo === 'status' ? 'Status da Empresa' : 'PESQUISA';
-    const valorAlvo = valor.trim().toUpperCase();
+    const nomeColuna =
+      tipo === 'status'
+        ? 'Status da Empresa'
+        : tipo === 'responsavel'
+          ? 'Responsável pela Abordagem'
+          : 'PESQUISA';
+    const valorAlvo = valor.replace(/\s+/g, ' ').trim().toUpperCase();
     const cnpjsFiltrados = [];
     dadosImportados.forEach((registro) => {
       const valorColuna = obterValorColunaExata(registro, nomeColuna);
       if (valorColuna === null) return;
-      if (valorColuna.trim().toUpperCase() === valorAlvo) {
+      if (valorColuna.replace(/\s+/g, ' ').trim().toUpperCase() === valorAlvo) {
         const cnpj = obterCNPJDeRegistro(registro);
         if (cnpj && todosCNPJsImportados.includes(cnpj) && !cnpjsFiltrados.includes(cnpj)) {
           cnpjsFiltrados.push(cnpj);
