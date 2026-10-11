@@ -919,6 +919,7 @@
       valorSel.innerHTML = '';
       valorSel.style.display = 'none';
     }
+    ocultarStatusSecundarioCNPJ();
     if (contagem) contagem.textContent = '';
     if (percentual) {
       percentual.textContent = '';
@@ -934,6 +935,7 @@
     const tipo = tipoSel ? tipoSel.value : '';
     if (!valorSel) return;
     valorSel.innerHTML = '';
+    ocultarStatusSecundarioCNPJ();
     if (!tipo) {
       valorSel.style.display = 'none';
       if (contagem) contagem.textContent = '';
@@ -1044,6 +1046,7 @@
     const tipo = tipoSel ? tipoSel.value : '';
     const valor = valorSel ? valorSel.value : '';
     if (!tipo || !valor || valor === 'TODAS') {
+      ocultarStatusSecundarioCNPJ();
       listaCNPJsAtual = todosCNPJsImportados.slice();
       paginaAtualCNPJ = 1;
       renderizarPaginaCNPJs();
@@ -1078,13 +1081,21 @@
     listaCNPJsAtual = cnpjsFiltrados;
     paginaAtualCNPJ = 1;
     renderizarPaginaCNPJs();
+    atualizarContagemFiltroCNPJ(cnpjsFiltrados.length);
+    if (tipo === 'responsavel') {
+      baseFiltroResponsavelCNPJ = cnpjsFiltrados.slice();
+      prepararStatusSecundarioCNPJ(cnpjsFiltrados);
+    }
+  }
+  function atualizarContagemFiltroCNPJ(qtd) {
+    const contagem = document.getElementById('contagemFiltroCNPJ');
+    const percentual = document.getElementById('percentualFiltroCNPJ');
     if (contagem) {
-      contagem.textContent =
-        cnpjsFiltrados.length + (cnpjsFiltrados.length === 1 ? ' CNPJ filtrado' : ' CNPJs filtrados');
+      contagem.textContent = qtd + (qtd === 1 ? ' CNPJ filtrado' : ' CNPJs filtrados');
     }
     if (percentual) {
       if (todosCNPJsImportados.length) {
-        const pct = (cnpjsFiltrados.length / todosCNPJsImportados.length) * 100;
+        const pct = (qtd / todosCNPJsImportados.length) * 100;
         const pctTexto = (Number.isInteger(pct) ? pct : pct.toFixed(1).replace(/\.0$/, '')) + '%';
         percentual.textContent = pctTexto;
         percentual.style.display = '';
@@ -1093,6 +1104,89 @@
         percentual.style.display = 'none';
       }
     }
+  }
+  // ---- Segundo filtro (Status da Empresa) dentro de "RESP. ABORDAGEM" ----
+  let baseFiltroResponsavelCNPJ = [];
+  const SEM_STATUS_CNPJ = '__SEM_STATUS__';
+  // Coluna "Status da Empresa" (.xlsx) / "StatusEmpresa" (.csv)
+  function obterStatusEmpresaRegistro(registro) {
+    const aceitas = ['statusdaempresa', 'statusempresa'];
+    for (const key of Object.keys(registro)) {
+      if (aceitas.includes(simplificarNomeColuna(key))) {
+        return String(registro[key] == null ? '' : registro[key]).replace(/\s+/g, ' ').trim();
+      }
+    }
+    return '';
+  }
+  function ocultarStatusSecundarioCNPJ() {
+    const sel = document.getElementById('filtroStatusSecCNPJ');
+    baseFiltroResponsavelCNPJ = [];
+    if (!sel) return;
+    sel.innerHTML = '';
+    sel.style.display = 'none';
+  }
+  function prepararStatusSecundarioCNPJ(cnpjsDoResponsavel) {
+    const sel = document.getElementById('filtroStatusSecCNPJ');
+    if (!sel) return;
+    const conjunto = new Set(cnpjsDoResponsavel);
+    const vistos = new Set();
+    const status = [];
+    let haSemStatus = false;
+    dadosImportados.forEach((registro) => {
+      const cnpj = obterCNPJDeRegistro(registro);
+      if (!cnpj || !conjunto.has(cnpj)) return;
+      const st = obterStatusEmpresaRegistro(registro);
+      if (!st) {
+        haSemStatus = true;
+        return;
+      }
+      const chave = st.toUpperCase();
+      if (vistos.has(chave)) return;
+      vistos.add(chave);
+      status.push(st);
+    });
+    status.sort((a, b) => a.localeCompare(b, 'pt-BR', { sensitivity: 'base' }));
+    sel.innerHTML = '';
+    const ph = document.createElement('option');
+    ph.value = '';
+    ph.textContent = 'Todos os status';
+    sel.appendChild(ph);
+    status.forEach((st) => {
+      const opt = document.createElement('option');
+      opt.value = st;
+      opt.textContent = st;
+      sel.appendChild(opt);
+    });
+    if (haSemStatus) {
+      const opt = document.createElement('option');
+      opt.value = SEM_STATUS_CNPJ;
+      opt.textContent = '(SEM STATUS)';
+      sel.appendChild(opt);
+    }
+    sel.value = '';
+    sel.style.display = '';
+  }
+  function aplicarFiltroStatusSecundarioCNPJ() {
+    const sel = document.getElementById('filtroStatusSecCNPJ');
+    const valor = sel ? sel.value : '';
+    if (!valor) {
+      listaCNPJsAtual = baseFiltroResponsavelCNPJ.slice();
+    } else {
+      const conjunto = new Set(baseFiltroResponsavelCNPJ);
+      const alvo = valor.toUpperCase();
+      const filtrados = [];
+      dadosImportados.forEach((registro) => {
+        const cnpj = obterCNPJDeRegistro(registro);
+        if (!cnpj || !conjunto.has(cnpj) || filtrados.includes(cnpj)) return;
+        const st = obterStatusEmpresaRegistro(registro);
+        const confere = valor === SEM_STATUS_CNPJ ? st === '' : st.toUpperCase() === alvo;
+        if (confere) filtrados.push(cnpj);
+      });
+      listaCNPJsAtual = filtrados;
+    }
+    paginaAtualCNPJ = 1;
+    renderizarPaginaCNPJs();
+    atualizarContagemFiltroCNPJ(listaCNPJsAtual.length);
   }
   function totalPaginasCNPJ() {
     return Math.max(1, Math.ceil(listaCNPJsAtual.length / ITENS_POR_PAGINA_CNPJ));
@@ -3017,6 +3111,7 @@
     mostrarToast: mostrarToast,
     onFiltroTipoCNPJChange: onFiltroTipoCNPJChange,
     aplicarFiltroCNPJs: aplicarFiltroCNPJs,
+    aplicarFiltroStatusSecundarioCNPJ: aplicarFiltroStatusSecundarioCNPJ,
     ndCopiarNovosDados: ndCopiarNovosDados,
     ndFormatarCEP: ndFormatarCEP,
     ndFormatarCNPJ: ndFormatarCNPJ,
