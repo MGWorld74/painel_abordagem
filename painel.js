@@ -987,11 +987,27 @@
   }
   // Lista de nomes únicos (sem repetir) da coluna "Responsável pela Abordagem" (.xlsx) /
   // "NomeResponsavelAbordagem" (.csv), já unificadas pela normalização da planilha, em ordem alfabética.
+  function simplificarNomeColuna(texto) {
+    return String(texto == null ? '' : texto)
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, '');
+  }
+  function obterResponsavelAbordagem(registro) {
+    const aceitas = ['responsavelpelaabordagem', 'nomeresponsavelabordagem', 'responsavelabordagem'];
+    for (const key of Object.keys(registro)) {
+      if (aceitas.includes(simplificarNomeColuna(key))) {
+        return String(registro[key] == null ? '' : registro[key]).trim();
+      }
+    }
+    return null;
+  }
   function obterResponsaveisAbordagemUnicos() {
     const vistos = new Set();
     const nomes = [];
     dadosImportados.forEach((registro) => {
-      const nome = obterValorColunaExata(registro, 'Responsável pela Abordagem');
+      const nome = obterResponsavelAbordagem(registro);
       if (!nome) return;
       const chave = nome.replace(/\s+/g, ' ').trim().toLowerCase();
       if (!chave || vistos.has(chave)) return;
@@ -1047,7 +1063,10 @@
     const valorAlvo = valor.replace(/\s+/g, ' ').trim().toUpperCase();
     const cnpjsFiltrados = [];
     dadosImportados.forEach((registro) => {
-      const valorColuna = obterValorColunaExata(registro, nomeColuna);
+      const valorColuna =
+        tipo === 'responsavel'
+          ? obterResponsavelAbordagem(registro)
+          : obterValorColunaExata(registro, nomeColuna);
       if (valorColuna === null) return;
       if (valorColuna.replace(/\s+/g, ' ').trim().toUpperCase() === valorAlvo) {
         const cnpj = obterCNPJDeRegistro(registro);
