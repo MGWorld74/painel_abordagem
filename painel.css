@@ -513,7 +513,7 @@ body.dark #modalConfirmSim { background: var(--cor-erro) !important; color: #fff
 .menu-consultar-cnpj { position: relative; display: inline-block; }
 .menu-consultar-lista { position: absolute; top: calc(100% + 4px); right: 0; z-index: 1000; min-width: 190px; background: #fff; border: 1px solid #ccc; border-radius: 8px; box-shadow: 0 6px 20px rgba(0,0,0,.2); padding: 8px; display: flex; flex-direction: column; gap: 6px; }
 .menu-consultar-lista[hidden] { display: none; }
-.menu-consultar-lista button { display: block; width: 100%; padding: 9px 12px; border: 1px solid #d5dde8; border-radius: 6px; background: #f3f6fa; color: #222; font-size: 13px; font-weight: 600; text-align: left; cursor: pointer; transition: background .15s, border-color .15s; }
+.menu-consultar-lista button { display: block; width: 100%; padding: 9px 12px; border: 1px solid #d5dde8; border-radius: 6px; background: #b9d5f8; color: #222; font-size: 13px; font-weight: 600; text-align: left; cursor: pointer; transition: background .15s, border-color .15s; }
 .menu-consultar-lista button:hover, .menu-consultar-lista button:focus-visible { background: #cfe0f5; border-color: #9dbbe3; outline: none; }
 .menu-consultar-lista hr { border: 0; border-top: 1px solid #ddd; margin: 2px 0; width: 100%; }
 body.dark .menu-consultar-lista { background: #1e2a3a; border-color: #3a4e6a; }
