@@ -4,13 +4,21 @@
       document.body.classList.add('dark');
     }
   } catch (e) {}
-  try {
-    if (typeof ScriptonitInterface !== 'undefined') {
-      const sci = new ScriptonitInterface();
-      sci.window.setTitle('Painel de Consultas Empresariais');
-    }
-  } catch (e) {
-    console.warn('[Painel] ScriptonitInterface não disponível:', e.message);
+  // Scriptonit só existe no ambiente interno: não é pedido no GitHub Pages (evita o 404)
+  if (!location.hostname.endsWith('github.io')) {
+    const scriptonit = document.createElement('script');
+    scriptonit.src = '../system/Scriptonit.Engine.js';
+    scriptonit.onload = function () {
+      try {
+        if (typeof ScriptonitInterface !== 'undefined') {
+          new ScriptonitInterface().window.setTitle('Painel de Consultas Empresariais');
+        }
+      } catch (e) {
+        console.warn('[Painel] ScriptonitInterface não disponível:', e.message);
+      }
+    };
+    scriptonit.onerror = function () {};
+    document.head.appendChild(scriptonit);
   }
 
   // ============================================================
@@ -75,9 +83,17 @@
       escaparHtml(mensagem) +
       '</p><div style="display:flex;gap:10px;justify-content:flex-end;"><button id="modalConfirmNao" type="button" style="padding:8px 18px;border:1px solid #ccc;border-radius:6px;background:#f5f5f5;color:#444;font-size:14px;cursor:pointer;">Cancelar</button><button id="modalConfirmSim" type="button" style="padding:8px 18px;border:none;border-radius:6px;background:#c0392b;color:#fff;font-size:14px;font-weight:700;cursor:pointer;">Confirmar</button></div></div>';
     document.body.appendChild(overlay);
+    const focoAnterior = document.activeElement;
     function fechar() {
       overlay.remove();
+      document.removeEventListener('keydown', aoTeclarConfirm);
+      if (focoAnterior && focoAnterior.focus) focoAnterior.focus();
     }
+    function aoTeclarConfirm(e) {
+      if (e.key === 'Escape') fechar();
+    }
+    document.addEventListener('keydown', aoTeclarConfirm);
+    document.getElementById('modalConfirmNao').focus();
     document.getElementById('modalConfirmSim').addEventListener('click', function () {
       fechar();
       callbackSim();
@@ -101,11 +117,112 @@
   function cronogramaChaveStorage(ano, campo) {
     return 'cronogramaEconomicas_' + ano + '_' + campo;
   }
-  function cronogramaObterValor(ano, campo) {
-    return localStorage.getItem(cronogramaChaveStorage(ano, campo)) || 'xx/xx/xxxx';
+  // As datas ficam na tabela "cronograma_datas" do Supabase (visíveis para todos).
+  // O localStorage vira apenas cópia local, usada se o banco estiver indisponível.
+  const CRONOGRAMA_TABELA = 'cronograma_datas';
+  const cronogramaCache = {}; // 'ano|campo' -> valor vindo do banco
+  let cronogramaBancoComDados = false;
+  function cronogramaDb() {
+    try {
+      if (window.painelDb) return window.painelDb;
+      if (window.supabase && window.supabase.createClient) {
+        window.painelDb = window.supabase.createClient(
+          'https://jvjfpxrknggeodjgamyu.supabase.co',
+          'sb_publishable_yxHF_N1gjdGoHMEoM5GF2w_QVMzzMF0'
+        );
+        return window.painelDb;
+      }
+    } catch (e) {}
+    return null;
   }
-  function cronogramaSalvarValor(ano, campo, valor) {
-    localStorage.setItem(cronogramaChaveStorage(ano, campo), valor || 'xx/xx/xxxx');
+  function cronogramaLerLocal(ano, campo) {
+    try { return localStorage.getItem(cronogramaChaveStorage(ano, campo)); } catch (e) { return null; }
+  }
+  function cronogramaGravarLocal(ano, campo, valor) {
+    try { localStorage.setItem(cronogramaChaveStorage(ano, campo), valor); } catch (e) {}
+  }
+  function cronogramaObterValor(ano, campo) {
+    const remoto = cronogramaCache[ano + '|' + campo];
+    if (remoto) return remoto;
+    // Enquanto o banco estiver vazio ou inacessível, mostra a cópia local (permite publicar as datas já existentes)
+    if (!cronogramaBancoComDados) return cronogramaLerLocal(ano, campo) || 'xx/xx/xxxx';
+    return 'xx/xx/xxxx';
+  }
+  async function cronogramaCarregarRemoto() {
+    const db = cronogramaDb();
+    if (!db) return false;
+    try {
+      const { data, error } = await db.from(CRONOGRAMA_TABELA).select('ano,campo,valor');
+      if (error || !Array.isArray(data)) throw error || new Error('resposta inválida');
+      data.forEach(function (l) {
+        cronogramaCache[l.ano + '|' + l.campo] = l.valor;
+        cronogramaGravarLocal(l.ano, l.campo, l.valor);
+      });
+      cronogramaBancoComDados = data.length > 0;
+      return true;
+    } catch (e) {
+      console.warn('[Painel] Cronograma: não foi possível ler do banco:', e && e.message);
+      return false;
+    }
+  }
+  async function cronogramaSalvarRemoto(linhas) {
+    const db = cronogramaDb();
+    if (!db) throw new Error('Sem conexão com o banco de dados.');
+    const agora = new Date().toISOString();
+    const { error } = await db.from(CRONOGRAMA_TABELA).upsert(
+      linhas.map(function (l) { return { ano: l.ano, campo: l.campo, valor: l.valor, atualizado_em: agora }; }),
+      { onConflict: 'ano,campo' }
+    );
+    if (error) throw error;
+    linhas.forEach(function (l) {
+      cronogramaCache[l.ano + '|' + l.campo] = l.valor;
+      cronogramaGravarLocal(l.ano, l.campo, l.valor);
+    });
+    cronogramaBancoComDados = true;
+  }
+  function cronogramaPedirSenha(aoConfirmar) {
+    const anterior = document.getElementById('modalSenhaCrono');
+    if (anterior) anterior.remove();
+    const focoAnterior = document.activeElement;
+    const overlay = document.createElement('div');
+    overlay.id = 'modalSenhaCrono';
+    overlay.className = 'modal-senha-overlay';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-labelledby', 'modalSenhaCronoTitulo');
+    overlay.innerHTML =
+      '<div class="modal-senha-caixa">' +
+        '<p id="modalSenhaCronoTitulo">Digite a senha para editar as datas do cronograma:</p>' +
+        '<input type="password" id="modalSenhaCronoInput" autocomplete="off" aria-label="Senha do cronograma">' +
+        '<div class="modal-senha-erro" id="modalSenhaCronoErro" role="alert"></div>' +
+        '<div class="modal-senha-acoes">' +
+          '<button type="button" id="modalSenhaCronoCancelar">Cancelar</button>' +
+          '<button type="button" id="modalSenhaCronoOk" class="modal-senha-ok">Liberar</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(overlay);
+    const input = overlay.querySelector('#modalSenhaCronoInput');
+    input.focus();
+    function fechar() {
+      overlay.remove();
+      if (focoAnterior && focoAnterior.focus) focoAnterior.focus();
+    }
+    function confirmar() {
+      if (input.value === CRONOGRAMA_SENHA) {
+        fechar();
+        aoConfirmar();
+      } else {
+        overlay.querySelector('#modalSenhaCronoErro').textContent = 'Senha incorreta.';
+        input.select();
+      }
+    }
+    overlay.querySelector('#modalSenhaCronoOk').addEventListener('click', confirmar);
+    overlay.querySelector('#modalSenhaCronoCancelar').addEventListener('click', fechar);
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) fechar(); });
+    overlay.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') { e.stopPropagation(); fechar(); }
+      else if (e.key === 'Enter') { e.preventDefault(); confirmar(); }
+    });
   }
   function cronogramaFormatarData(input) {
     let v = input.value.replace(/\D/g, '').slice(0, 8);
@@ -129,9 +246,6 @@
       escaparHtml(cronogramaObterValor(cronogramaAnoAtual, id2)) + '</span>';
     html += '<span class="crono-rotulo"> - ' + escaparHtml(textoApos) + '</span></div>';
     return html;
-  }
-  function cronogramaLinhaTexto(texto) {
-    return '<div class="crono-texto">' + escaparHtml(texto) + '</div>';
   }
   function cronogramaConteudoHTML() {
     return ''
@@ -169,12 +283,24 @@
       btnSalvar.id = 'crono-btn-salvar';
       btnSalvar.className = 'crono-btn-salvar';
       btnSalvar.textContent = '💾 Salvar alterações';
-      btnSalvar.addEventListener('click', function () {
-        overlay.querySelectorAll('.crono-input').forEach(function (input) {
-          cronogramaSalvarValor(cronogramaAnoAtual, input.getAttribute('data-campo'), input.value.trim());
+      btnSalvar.addEventListener('click', async function () {
+        const ano = cronogramaAnoAtual;
+        const linhas = Array.from(overlay.querySelectorAll('.crono-input')).map(function (input) {
+          return { ano: ano, campo: input.getAttribute('data-campo'), valor: input.value.trim() || 'xx/xx/xxxx' };
         });
+        btnSalvar.disabled = true;
+        btnSalvar.textContent = 'Salvando...';
+        try {
+          await cronogramaSalvarRemoto(linhas);
+        } catch (e) {
+          console.warn('[Painel] Cronograma: falha ao salvar:', e && e.message);
+          mostrarToast('Não foi possível salvar as datas para todos os usuários. Verifique a conexão e o login e tente de novo.', 'aviso');
+          btnSalvar.disabled = false;
+          btnSalvar.textContent = '💾 Salvar alterações';
+          return;
+        }
         cronogramaDesbloqueado = false;
-        mostrarToast('Datas do cronograma salvas para ' + cronogramaAnoAtual + '.', 'sucesso');
+        mostrarToast('Datas do cronograma salvas para ' + ano + ' (visíveis para todos).', 'sucesso');
         btnSalvar.remove();
         const btnEditar = overlay.querySelector('#crono-btn-editar');
         if (btnEditar) { btnEditar.disabled = false; btnEditar.textContent = 'Editar datas'; }
@@ -193,6 +319,10 @@
     const overlay = document.createElement('div');
     overlay.id = 'modalCronograma';
     overlay.className = 'crono-overlay';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-label', 'Cronograma das Pesquisas Econômicas Anuais');
+    const focoAnterior = document.activeElement;
     overlay.innerHTML =
       '<div class="crono-caixa">' +
         '<div class="crono-cabecalho">' +
@@ -226,6 +356,12 @@
       if (cronogramaDesbloqueado) cronogramaAtivarEdicao(overlay);
     }
     renderizarCorpo();
+    // Busca as datas compartilhadas; não redesenha se a pessoa já estiver editando
+    cronogramaCarregarRemoto().then(function (ok) {
+      if (!overlay.isConnected) return;
+      if (!ok) mostrarToast('Não foi possível ler as datas compartilhadas; mostrando a cópia deste computador.', 'aviso');
+      else if (!cronogramaDesbloqueado) renderizarCorpo();
+    });
 
     function abrirSeletorAno() {
       anoCaixa.style.display = 'none';
@@ -254,20 +390,21 @@
 
     overlay.querySelector('#crono-btn-editar').addEventListener('click', function () {
       if (cronogramaDesbloqueado) return;
-      const senha = prompt('Digite a senha para editar as datas do cronograma:');
-      if (senha === null) return;
-      if (senha === CRONOGRAMA_SENHA) {
+      cronogramaPedirSenha(function () {
         cronogramaDesbloqueado = true;
         mostrarToast('Edição liberada. Altere as datas e clique em Salvar.', 'sucesso');
         renderizarCorpo();
-      } else {
-        mostrarToast('Senha incorreta.', 'aviso');
-      }
+      });
     });
 
     function fechar() {
       overlay.remove();
+      if (focoAnterior && focoAnterior.focus) focoAnterior.focus();
     }
+    overlay.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') fechar();
+    });
+    overlay.querySelector('#crono-btn-fechar').focus();
     overlay.querySelector('#crono-btn-fechar').addEventListener('click', fechar);
     overlay.addEventListener('click', function (e) {
       if (e.target === overlay) fechar();
@@ -373,7 +510,13 @@
     if (!e.target.closest('#menuConsultarCnpj')) fecharMenuConsultarCnpj();
   });
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') fecharMenuConsultarCnpj();
+    if (e.key !== 'Escape') return;
+    const lista = document.getElementById('listaConsultarCnpj');
+    if (lista && !lista.hidden) {
+      fecharMenuConsultarCnpj();
+      const btn = document.getElementById('btnConsultarCnpj');
+      if (btn) btn.focus();
+    }
   });
   function copiarCNPJ() {
     const valor = document.getElementById('cnpj').value.replace(/\D/g, '');
@@ -440,42 +583,22 @@
   }
 
   // ============================================================
-  // SEÇÃO: BOTÕES CORINGA RESERVADOS (uso futuro)
-  // Convenção: quando um coringaN() ganhar destino definido, deixe
-  // aqui um comentário "coringaN: reservado para X" documentando
-  // o que ele deveria virar, até a implementação ser feita.
+  // SEÇÃO: DESTINOS DE ÓRGÃOS/ARQUIVOS + BOTÕES RESERVADOS
+  // Botões "Coringa" do HTML (class="coringa-reservado") não têm função própria:
+  // um único ouvinte de clique mostra o aviso. Quando um deles ganhar destino,
+  // troque a classe por um onclick com a nova função.
   // ============================================================
   function coringaReservado() {
     mostrarToast('Botão reservado para uso futuro.', 'info');
   }
-  function coringa1() {
-    coringaReservado();
-  }
-  function coringa2() {
-    coringaReservado();
-  }
-  // coringa3: destino definido -> Regularize (PGFN)
+  document.addEventListener('click', function (e) {
+    if (e.target.closest && e.target.closest('.coringa-reservado')) coringaReservado();
+  });
   function regularize() {
     abrir('https://www.regularize.pgfn.gov.br');
   }
-  // coringa4: destino definido -> Devedor da União (PGFN)
   function devedorUniao() {
     abrir('https://www.dividaaberta.pgfn.gov.br/consultar-devedores');
-  }
-  function coringa5() {
-    coringaReservado();
-  }
-  function coringa6() {
-    coringaReservado();
-  }
-  function coringa7() {
-    coringaReservado();
-  }
-  function coringa8() {
-    coringaReservado();
-  }
-  function coringa9() {
-    coringaReservado();
   }
   function mapaAgencias() {
     abrir('https://www.google.com/maps/d/edit?mid=1yGEvkctxrJDCbj-d_GZ1LgaBwDw15o4&usp=sharing');
@@ -486,75 +609,12 @@
   function oficioCorreios() {
     abrir('https://smt.correios.com.br/smt/#/home');
   }
-  function coringa19() {
-    coringaReservado();
-  }
-  // coringa20: destino definido -> Protocolo de Ocorrências (era coringa20, ver botão em "Arquivos Complementares")
   function protocoloOcorrencias() {
     try {
       window.open('./protocolo.pdf');
     } catch (e) {
       location.href = './protocolo.pdf';
     }
-  }
-  function globalProtectProcedimentos() {
-    try {
-      window.open('./ProcedimentosGlobalProtect.pdf');
-    } catch (e) {
-      location.href = './ProcedimentosGlobalProtect.pdf';
-    }
-  }
-  function globalProtectPadraoFAC20() {
-    try {
-      window.open('./padraoFAC20.pdf');
-    } catch (e) {
-      location.href = './padraoFAC20.pdf';
-    }
-  }
-  function coringa21() {
-    coringaReservado();
-  }
-  function coringa22() {
-    coringaReservado();
-  }
-  function coringa23() {
-    coringaReservado();
-  }
-  function coringa24() {
-    coringaReservado();
-  }
-  function coringa25() {
-    coringaReservado();
-  }
-  function coringa26() {
-    coringaReservado();
-  }
-  function coringa27() {
-    coringaReservado();
-  }
-  function coringa28() {
-    coringaReservado();
-  }
-  function coringa29() {
-    coringaReservado();
-  }
-  function coringa13() {
-    coringaReservado();
-  }
-  function coringa14() {
-    coringaReservado();
-  }
-  function coringa15() {
-    coringaReservado();
-  }
-  function coringa16() {
-    coringaReservado();
-  }
-  function coringa17() {
-    coringaReservado();
-  }
-  function coringa18() {
-    coringaReservado();
   }
 
   // ============================================================
@@ -843,7 +903,10 @@
   function salvarDadosImportados() {
     try {
       localStorage.setItem('dadosImportadosCNPJ', JSON.stringify(dadosImportados));
-    } catch (e) {}
+    } catch (e) {
+      console.warn('[Painel] Não foi possível guardar a planilha no navegador:', e);
+      mostrarToast('A planilha é grande demais para ficar guardada no navegador. Ela funciona agora, mas será preciso importá-la de novo ao recarregar a página.', 'aviso');
+    }
   }
   function carregarDadosImportados() {
     try {
@@ -3173,21 +3236,7 @@
     oficioCorreios: oficioCorreios,
     cronogramaEconomicas: cronogramaEconomicas,
     textoTelegrama: textoTelegrama,
-    coringa19: coringa19,
     protocoloOcorrencias: protocoloOcorrencias,
-    coringa21: coringa21,
-    coringa22: coringa22,
-    coringa23: coringa23,
-    coringa13: coringa13,
-    coringa14: coringa14,
-    coringa15: coringa15,
-    coringa16: coringa16,
-    coringa17: coringa17,
-    coringa18: coringa18,
-    coringa2: coringa2,
-    coringa7: coringa7,
-    coringa8: coringa8,
-    coringa9: coringa9,
     devedorUniao: devedorUniao,
     driveIBGE: driveIBGE,
     econodata: econodata,

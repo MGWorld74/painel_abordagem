@@ -18,6 +18,7 @@
     'https://jvjfpxrknggeodjgamyu.supabase.co',
     'sb_publishable_yxHF_N1gjdGoHMEoM5GF2w_QVMzzMF0'
   );
+  window.painelDb = db; // reaproveitado pelo painel.js (cronograma compartilhado)
 
   const { data: { session } } = await db.auth.getSession();
   if (!session) { location.replace('index.html'); return; }
@@ -35,7 +36,7 @@
 </script>
 <title>Painel de Consultas Empresariais</title>
 <link rel="icon" type="image/png" sizes="64x64" href="favicon.png">
-<link rel="stylesheet" href="painel.css?v=5">
+<link rel="stylesheet" href="painel.css?v=6">
 </head>
 <body>
 <noscript>
@@ -155,7 +156,7 @@
 <label for="cnpj">CNPJ</label>
 <input type="text" id="cnpj" maxlength="18" placeholder="00000000/0001-00" inputmode="numeric" oninput="formatarCNPJ(this)" aria-label="Digite o CNPJ para consulta">
 <div class="menu-consultar-cnpj" id="menuConsultarCnpj">
-<button type="button" id="btnConsultarCnpj" onclick="alternarMenuConsultarCnpj(event)" aria-haspopup="true" aria-expanded="false" title="Consultar o CNPJ nos sites" style="padding:10px 14px;border:none;border-radius:6px;background:#10b981;color:#fff;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap;">🔎 Consultar ▾</button>
+<button type="button" id="btnConsultarCnpj" class="btn-consultar" onclick="alternarMenuConsultarCnpj(event)" aria-haspopup="true" aria-expanded="false" title="Consultar o CNPJ nos sites">🔎 Consultar ▾</button>
 <div class="menu-consultar-lista" id="listaConsultarCnpj" role="menu" hidden>
 <button type="button" role="menuitem" data-acao="cnpjAberto">CNPJ Aberto</button>
 <button type="button" role="menuitem" data-acao="cnpja">CNPJá</button>
@@ -172,7 +173,7 @@
 <div class="card card-cnpj">
 <label for="site">Site <span style="font-size:12px;font-weight:600;color:#555;">(apenas domínios .br)</span></label>
 <input type="text" id="site" class="campo-site" placeholder="empresa.com.br ou www.empresa.com.br" aria-label="Digite o domínio da empresa">
-<button type="button" onclick="whois()" aria-label="Consultar domínio" style="padding:10px 14px;border:none;border-radius:6px;background:#10b981;color:#fff;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap;">🔎 Consultar</button>
+<button type="button" class="btn-consultar" onclick="whois()" aria-label="Consultar domínio">🔎 Consultar</button>
 </div>
 </div>
 </div>
@@ -186,15 +187,15 @@
 <button type="button" onclick="sintegra()" aria-label="Consultar na Sefaz RJ">🏦<br><br>Sefaz RJ</button>
 <button type="button" onclick="regularize()" aria-label="Consultar no Regularize PGFN">🏦<br><br>Regularize</button>
 <button type="button" onclick="devedorUniao()" aria-label="Consultar Devedor da União PGFN">🏦<br><br>Devedor da União</button>
-<button type="button" class="coringa-reservado" aria-disabled="true" tabindex="-1" onclick="coringa5()" aria-label="Botão reservado">🏦<br><br>Coringa</button>
-<button type="button" class="coringa-reservado" aria-disabled="true" tabindex="-1" onclick="coringa6()" aria-label="Botão reservado">🏦<br><br>Coringa</button>
-<button type="button" class="coringa-reservado" aria-disabled="true" tabindex="-1" onclick="coringa7()" aria-label="Botão reservado">🏦<br><br>Coringa</button>
-<button type="button" class="coringa-reservado" aria-disabled="true" tabindex="-1" onclick="coringa8()" aria-label="Botão reservado">🏦<br><br>Coringa</button>
-<button type="button" class="coringa-reservado" aria-disabled="true" tabindex="-1" onclick="coringa9()" aria-label="Botão reservado">🏦<br><br>Coringa</button>
-<button type="button" class="coringa-reservado" aria-disabled="true" tabindex="-1" onclick="coringa13()" aria-label="Botão reservado">🏦<br><br>Coringa</button>
-<button type="button" class="coringa-reservado" aria-disabled="true" tabindex="-1" onclick="coringa14()" aria-label="Botão reservado">🏦<br><br>Coringa</button>
-<button type="button" class="coringa-reservado" aria-disabled="true" tabindex="-1" onclick="coringa15()" aria-label="Botão reservado">🏦<br><br>Coringa</button>
-<button type="button" class="coringa-reservado" aria-disabled="true" tabindex="-1" onclick="coringa16()" aria-label="Botão reservado">🏦<br><br>Coringa</button>
+<button type="button" class="coringa-reservado" aria-disabled="true" tabindex="-1" aria-label="Botão reservado">🏦<br><br>Coringa</button>
+<button type="button" class="coringa-reservado" aria-disabled="true" tabindex="-1" aria-label="Botão reservado">🏦<br><br>Coringa</button>
+<button type="button" class="coringa-reservado" aria-disabled="true" tabindex="-1" aria-label="Botão reservado">🏦<br><br>Coringa</button>
+<button type="button" class="coringa-reservado" aria-disabled="true" tabindex="-1" aria-label="Botão reservado">🏦<br><br>Coringa</button>
+<button type="button" class="coringa-reservado" aria-disabled="true" tabindex="-1" aria-label="Botão reservado">🏦<br><br>Coringa</button>
+<button type="button" class="coringa-reservado" aria-disabled="true" tabindex="-1" aria-label="Botão reservado">🏦<br><br>Coringa</button>
+<button type="button" class="coringa-reservado" aria-disabled="true" tabindex="-1" aria-label="Botão reservado">🏦<br><br>Coringa</button>
+<button type="button" class="coringa-reservado" aria-disabled="true" tabindex="-1" aria-label="Botão reservado">🏦<br><br>Coringa</button>
+<button type="button" class="coringa-reservado" aria-disabled="true" tabindex="-1" aria-label="Botão reservado">🏦<br><br>Coringa</button>
 </div>
 </div>
 </div>
@@ -210,12 +211,12 @@
 <button type="button" onclick="pesquisaCNAE()" aria-label="Pesquisar CNAE IBGE">🌎<br>CNAE IBGE</button>
 <button type="button" onclick="certidaoIBGE()" aria-label="Abrir Certidão IBGE">📄<br>Certidão IBGE</button>
 <a href="https://peegestor.ibge.gov.br" target="_blank" rel="noopener noreferrer" aria-label="Abrir PEE Gestor">🌐<br>PEE Gestor</a>
-<button type="button" class="coringa-reservado" aria-disabled="true" tabindex="-1" onclick="coringa18()" aria-label="Botão reservado">🌐<br><br>Coringa</button>
-<button type="button" class="coringa-reservado" aria-disabled="true" tabindex="-1" onclick="coringa19()" aria-label="Botão reservado">🌐<br><br>Coringa</button>
-<button type="button" class="coringa-reservado" aria-disabled="true" tabindex="-1" onclick="coringa23()" aria-label="Botão reservado">🌐<br><br>Coringa</button>
-<button type="button" class="coringa-reservado" aria-disabled="true" tabindex="-1" onclick="coringa2()" aria-label="Botão reservado">🌐<br><br>Coringa</button>
-<button type="button" class="coringa-reservado" aria-disabled="true" tabindex="-1" onclick="coringa24()" aria-label="Botão reservado">🌐<br><br>Coringa</button>
-<button type="button" class="coringa-reservado" aria-disabled="true" tabindex="-1" onclick="coringa25()" aria-label="Botão reservado">🌐<br><br>Coringa</button>
+<button type="button" class="coringa-reservado" aria-disabled="true" tabindex="-1" aria-label="Botão reservado">🌐<br><br>Coringa</button>
+<button type="button" class="coringa-reservado" aria-disabled="true" tabindex="-1" aria-label="Botão reservado">🌐<br><br>Coringa</button>
+<button type="button" class="coringa-reservado" aria-disabled="true" tabindex="-1" aria-label="Botão reservado">🌐<br><br>Coringa</button>
+<button type="button" class="coringa-reservado" aria-disabled="true" tabindex="-1" aria-label="Botão reservado">🌐<br><br>Coringa</button>
+<button type="button" class="coringa-reservado" aria-disabled="true" tabindex="-1" aria-label="Botão reservado">🌐<br><br>Coringa</button>
+<button type="button" class="coringa-reservado" aria-disabled="true" tabindex="-1" aria-label="Botão reservado">🌐<br><br>Coringa</button>
 </div>
 </div>
 </div>
@@ -554,8 +555,7 @@
 <h6><i>"A preguiça gasta a vida como a ferrugem consome o ferro."</i></h6>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" integrity="sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw" crossorigin="anonymous"></script>
-<script src="../system/Scriptonit.Engine.js"></script>
-<script src="painel.js?v=4"></script>
+<script src="painel.js?v=5"></script>
 <footer class="rodape-ibge">
 <p><strong><span class="ibge">IBGE</span> - Nossa Missão:</strong> Retratar o Brasil com informações necessárias ao conhecimento de sua realidade e ao exercício da cidadania.</p>
 <p>Site: <a href="https://www.ibge.gov.br" target="_blank" rel="noopener noreferrer">www.ibge.gov.br</a> &nbsp;&nbsp;|&nbsp;&nbsp; Telefone: 0800 721 8181</p>
