@@ -35,7 +35,7 @@
 </script>
 <title>Painel de Consultas Empresariais</title>
 <link rel="icon" type="image/png" sizes="64x64" href="favicon.png">
-<link rel="stylesheet" href="painel.css?v=2">
+<link rel="stylesheet" href="painel.css?v=4">
 </head>
 <body>
 <noscript>
@@ -246,13 +246,14 @@
 <div class="duo-quadros" style="grid-template-columns: 1fr;">
 <div class="quadro-duo quadro-novos-dados-empresa">
 <h3 class="titulo-secao" style="margin-top:0;">📝 Novos dados encontrados da Empresa</h3>
-<div class="nde-bloco">
+<div class="sipea-quadro nde-bloco">
+<h4>TELEFONES:</h4>
 <div class="nde-entrada">
 <label class="nde-label" for="nd-telefones">Novos Telefones:</label>
 <input type="text" id="nd-telefones" class="nde-input" placeholder="(00) 00000-0000" autocomplete="off" oninput="ndMascara(this,'telefone')" onkeydown="ndTecla(event,'telefones')" inputmode="tel" aria-label="Novos telefones encontrados">
 <div class="nde-acoes">
-<button type="button" class="nde-btn nde-btn-incluir" onclick="ndIncluir('telefones')">Incluir</button>
-<button type="button" class="nde-btn nde-btn-limpar" onclick="ndLimpar('telefones')">Limpar</button>
+<button type="button" class="sipea-btn-incluir" onclick="ndIncluir('telefones')">Incluir</button>
+<button type="button" class="sipea-btn-limpar-sub" onclick="ndLimpar('telefones')">Limpar</button>
 </div>
 </div>
 <div class="nde-resultado">
@@ -260,13 +261,14 @@
 <button type="button" id="nd-res-btn-telefones" class="nde-btn-copiar nde-vazio" onclick="ndCopiar('telefones')">📋 Copiar</button>
 </div>
 </div>
-<div class="nde-bloco">
+<div class="sipea-quadro nde-bloco">
+<h4>E-MAILS:</h4>
 <div class="nde-entrada">
 <label class="nde-label" for="nd-emails">Novos e-mails:</label>
 <input type="text" id="nd-emails" class="nde-input" placeholder="nome@empresa.com" autocomplete="off" onkeydown="ndTecla(event,'emails')" inputmode="email" aria-label="Novos e-mails encontrados">
 <div class="nde-acoes">
-<button type="button" class="nde-btn nde-btn-incluir" onclick="ndIncluir('emails')">Incluir</button>
-<button type="button" class="nde-btn nde-btn-limpar" onclick="ndLimpar('emails')">Limpar</button>
+<button type="button" class="sipea-btn-incluir" onclick="ndIncluir('emails')">Incluir</button>
+<button type="button" class="sipea-btn-limpar-sub" onclick="ndLimpar('emails')">Limpar</button>
 </div>
 </div>
 <div class="nde-resultado">
@@ -274,13 +276,14 @@
 <button type="button" id="nd-res-btn-emails" class="nde-btn-copiar nde-vazio" onclick="ndCopiar('emails')">📋 Copiar</button>
 </div>
 </div>
-<div class="nde-bloco">
+<div class="sipea-quadro nde-bloco">
+<h4>ENDEREÇOS:</h4>
 <div class="nde-entrada">
 <label class="nde-label" for="nd-enderecos">Novos Endereços:</label>
 <input type="text" id="nd-enderecos" class="nde-input" placeholder="Rua, Número" autocomplete="off" onkeydown="ndTecla(event,'enderecos')" aria-label="Novos endereços encontrados">
 <div class="nde-acoes">
-<button type="button" class="nde-btn nde-btn-incluir" onclick="ndIncluir('enderecos')">Incluir</button>
-<button type="button" class="nde-btn nde-btn-limpar" onclick="ndLimpar('enderecos')">Limpar</button>
+<button type="button" class="sipea-btn-incluir" onclick="ndIncluir('enderecos')">Incluir</button>
+<button type="button" class="sipea-btn-limpar-sub" onclick="ndLimpar('enderecos')">Limpar</button>
 </div>
 </div>
 <div class="nde-resultado">
@@ -288,16 +291,17 @@
 <button type="button" id="nd-res-btn-enderecos" class="nde-btn-copiar nde-vazio" onclick="ndCopiar('enderecos')">📋 Copiar</button>
 </div>
 </div>
-<div class="nde-bloco">
-<div class="nde-entrada">
+<div class="sipea-quadro nde-bloco">
+<h4>BAIRRO / CEP / UF:</h4>
+<div class="nde-entrada nde-entrada-bairro">
 <label class="nde-label" for="nd-bairro">Bairro:</label>
 <input type="text" id="nd-bairro" class="nde-input" placeholder="Bairro" autocomplete="off" onkeydown="ndTecla(event,'bairro')" aria-label="Bairro">
 <label class="nde-label" for="nd-cep">CEP:</label>
 <input type="text" id="nd-cep" class="nde-input nde-input-cep" placeholder="00000-000" inputmode="numeric" autocomplete="off" oninput="ndMascara(this,'cep')" onkeydown="ndTecla(event,'bairro')" aria-label="CEP">
 <select id="nd-cidade" class="nde-input nde-input-uf" aria-label="UF"><option value="">UF</option><option>AC</option><option>AL</option><option>AP</option><option>AM</option><option>BA</option><option>CE</option><option>DF</option><option>ES</option><option>GO</option><option>MA</option><option>MT</option><option>MS</option><option>MG</option><option>PA</option><option>PB</option><option>PR</option><option>PE</option><option>PI</option><option>RJ</option><option>RN</option><option>RS</option><option>RO</option><option>RR</option><option>SC</option><option>SP</option><option>SE</option><option>TO</option></select>
 <div class="nde-acoes">
-<button type="button" class="nde-btn nde-btn-incluir" onclick="ndIncluir('bairro')">Incluir</button>
-<button type="button" class="nde-btn nde-btn-limpar" onclick="ndLimpar('bairro')">Limpar</button>
+<button type="button" class="sipea-btn-incluir" onclick="ndIncluir('bairro')">Incluir</button>
+<button type="button" class="sipea-btn-limpar-sub" onclick="ndLimpar('bairro')">Limpar</button>
 </div>
 </div>
 <div class="nde-resultado">
@@ -309,13 +313,14 @@
 <button type="button" id="nd-res-btn-bairro" class="nde-btn-copiar nde-vazio" onclick="ndCopiar('bairro')">📋 Copiar</button>
 </div>
 </div>
-<div class="nde-bloco">
+<div class="sipea-quadro nde-bloco">
+<h4>OUTRA EMPRESA DO(S) SÓCIO(S):</h4>
 <div class="nde-entrada">
 <label class="nde-label" for="nd-outra-empresa">Outra empresa do(s) sócio(s):</label>
 <input type="text" id="nd-outra-empresa" class="nde-input" placeholder="Razão Social / Fantasia" autocomplete="off" onkeydown="ndTecla(event,'empresas')" aria-label="Outra empresa em nome dos sócios">
 <div class="nde-acoes">
-<button type="button" class="nde-btn nde-btn-incluir" onclick="ndIncluir('empresas')">Incluir</button>
-<button type="button" class="nde-btn nde-btn-limpar" onclick="ndLimpar('empresas')">Limpar</button>
+<button type="button" class="sipea-btn-incluir" onclick="ndIncluir('empresas')">Incluir</button>
+<button type="button" class="sipea-btn-limpar-sub" onclick="ndLimpar('empresas')">Limpar</button>
 </div>
 </div>
 <div class="nde-resultado">
@@ -323,13 +328,14 @@
 <button type="button" id="nd-res-btn-empresas" class="nde-btn-copiar nde-vazio" onclick="ndCopiar('empresas')">📋 Copiar</button>
 </div>
 </div>
-<div class="nde-bloco">
+<div class="sipea-quadro nde-bloco">
+<h4>CNPJ:</h4>
 <div class="nde-entrada">
 <label class="nde-label" for="nd-outra-cnpj">CNPJ:</label>
 <input type="text" id="nd-outra-cnpj" class="nde-input" placeholder="00000000/0001-00" autocomplete="off" oninput="ndMascara(this,'cnpj')" onkeydown="ndTecla(event,'cnpjs')" inputmode="numeric" aria-label="CNPJ da outra empresa">
 <div class="nde-acoes">
-<button type="button" class="nde-btn nde-btn-incluir" onclick="ndIncluir('cnpjs')">Incluir</button>
-<button type="button" class="nde-btn nde-btn-limpar" onclick="ndLimpar('cnpjs')">Limpar</button>
+<button type="button" class="sipea-btn-incluir" onclick="ndIncluir('cnpjs')">Incluir</button>
+<button type="button" class="sipea-btn-limpar-sub" onclick="ndLimpar('cnpjs')">Limpar</button>
 </div>
 </div>
 <div class="nde-resultado">
@@ -337,13 +343,14 @@
 <button type="button" id="nd-res-btn-cnpjs" class="nde-btn-copiar nde-vazio" onclick="ndCopiar('cnpjs')">📋 Copiar</button>
 </div>
 </div>
-<div class="nde-bloco">
+<div class="sipea-quadro nde-bloco">
+<h4>SÓCIO(A)(S):</h4>
 <div class="nde-entrada">
 <label class="nde-label" for="nd-socios">Sócio(a)(s):</label>
 <input type="text" id="nd-socios" class="nde-input" placeholder="nome (s) sócio(a)(s)" autocomplete="off" onkeydown="ndTecla(event,'socios')" aria-label="Nomes dos sócios">
 <div class="nde-acoes">
-<button type="button" class="nde-btn nde-btn-incluir" onclick="ndIncluir('socios')">Incluir</button>
-<button type="button" class="nde-btn nde-btn-limpar" onclick="ndLimpar('socios')">Limpar</button>
+<button type="button" class="sipea-btn-incluir" onclick="ndIncluir('socios')">Incluir</button>
+<button type="button" class="sipea-btn-limpar-sub" onclick="ndLimpar('socios')">Limpar</button>
 </div>
 </div>
 <div class="nde-resultado">
@@ -354,8 +361,8 @@
 </div>
 </div>
 
-<h3 class="titulo-secao">Padrão das observações a serem registradas no SIPEA:</h3>
 <div class="card sipea-container" id="sipeaContainer">
+<h3 class="titulo-secao" style="margin-top:0;">Padrão das observações a serem registradas no SIPEA:</h3>
 
 <div class="sipea-quadro">
 <h4>LIGAÇÕES:</h4>
