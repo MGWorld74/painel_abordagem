@@ -35,7 +35,7 @@
 </script>
 <title>Painel de Consultas Empresariais</title>
 <link rel="icon" type="image/png" sizes="64x64" href="favicon.png">
-<link rel="stylesheet" href="painel.css?v=1">
+<link rel="stylesheet" href="painel.css?v=2">
 </head>
 <body>
 <noscript>
@@ -242,139 +242,114 @@
 </div>
 </div>
 
-<!-- ===== LINHA 1: NOVOS DADOS ENCONTRADOS + NOVOS DADOS INCLUÍDOS ===== -->
-<div class="duo-quadros novos-dados-layout">
-<div class="quadro-duo quadro-novos-dados">
-<h3 class="titulo-secao" style="margin-top:0;">📝 Novos dados encontrados</h3>
-<div class="novos-dados-form">
-<div class="nd-campo-linha">
-<div class="nd-campo-grupo">
-<label class="nd-label">Novos Telefones:</label>
-<input type="text" id="nd-telefones" class="nd-input" placeholder="(00) 00000-0000" oninput="ndFormatarTelefone(this)" aria-label="Novos telefones encontrados">
-</div>
-<div class="nd-campo-botoes">
-<button type="button" class="nd-btn-incluir-mini" onclick="ndIncluirUmCampo('telefones','nd-telefones','Telefone')" aria-label="Incluir telefone">Incluir</button>
-<button type="button" class="nd-btn-limpar-mini" onclick="ndLimparUmCampo('nd-telefones')" aria-label="Limpar telefone">Limpar</button>
+<!-- ===== NOVOS DADOS ENCONTRADOS DA EMPRESA ===== -->
+<div class="duo-quadros" style="grid-template-columns: 1fr;">
+<div class="quadro-duo quadro-novos-dados-empresa">
+<h3 class="titulo-secao" style="margin-top:0;">📝 Novos dados encontrados da Empresa</h3>
+<div class="nde-bloco">
+<div class="nde-entrada">
+<label class="nde-label" for="nd-telefones">Novos Telefones:</label>
+<input type="text" id="nd-telefones" class="nde-input" placeholder="(00) 00000-0000" autocomplete="off" oninput="ndMascara(this,'telefone')" onkeydown="ndTecla(event,'telefones')" inputmode="tel" aria-label="Novos telefones encontrados">
+<div class="nde-acoes">
+<button type="button" class="nde-btn nde-btn-incluir" onclick="ndIncluir('telefones')">Incluir</button>
+<button type="button" class="nde-btn nde-btn-limpar" onclick="ndLimpar('telefones')">Limpar</button>
 </div>
 </div>
-<div class="nd-campo-linha">
-<div class="nd-campo-grupo">
-<label class="nd-label">Novos e-mails:</label>
-<input type="text" id="nd-emails" class="nd-input" placeholder="nome@empresa.com" aria-label="Novos e-mails encontrados">
-</div>
-<div class="nd-campo-botoes">
-<button type="button" class="nd-btn-incluir-mini" onclick="ndIncluirUmCampo('emails','nd-emails','E-mail')" aria-label="Incluir e-mail">Incluir</button>
-<button type="button" class="nd-btn-limpar-mini" onclick="ndLimparUmCampo('nd-emails')" aria-label="Limpar e-mail">Limpar</button>
+<div class="nde-resultado">
+<div class="nde-res-conteudo"><span class="nde-res-label">Novo(s) telefone(s):</span> <span id="nd-res-telefones" class="nde-res-valor"></span></div>
+<button type="button" id="nd-res-btn-telefones" class="nde-btn-copiar nde-vazio" onclick="ndCopiar('telefones')">📋 Copiar</button>
 </div>
 </div>
-<div class="nd-campo-linha">
-<div class="nd-campo-grupo">
-<label class="nd-label">Novos Endereços:</label>
-<input type="text" id="nd-enderecos" class="nd-input" placeholder="Rua, Número" aria-label="Novos endereços encontrados">
-</div>
-<div class="nd-campo-botoes">
-<button type="button" class="nd-btn-incluir-mini" onclick="ndIncluirUmCampo('enderecos','nd-enderecos','Endereço')" aria-label="Incluir endereço">Incluir</button>
-<button type="button" class="nd-btn-limpar-mini" onclick="ndLimparUmCampo('nd-enderecos')" aria-label="Limpar endereço">Limpar</button>
-</div>
-</div>
-<div class="nd-campo-linha">
-<div class="nd-campo-grupo">
-<label class="nd-label">Bairro:</label>
-<input type="text" id="nd-bairro" class="nd-input" placeholder="Bairro" aria-label="Bairro">
-</div>
-<div class="nd-campo-botoes">
-<button type="button" class="nd-btn-incluir-mini" onclick="ndIncluirUmCampo('bairros','nd-bairro','Bairro')" aria-label="Incluir bairro">Incluir</button>
-<button type="button" class="nd-btn-limpar-mini" onclick="ndLimparUmCampo('nd-bairro')" aria-label="Limpar bairro">Limpar</button>
+<div class="nde-bloco">
+<div class="nde-entrada">
+<label class="nde-label" for="nd-emails">Novos e-mails:</label>
+<input type="text" id="nd-emails" class="nde-input" placeholder="nome@empresa.com" autocomplete="off" onkeydown="ndTecla(event,'emails')" inputmode="email" aria-label="Novos e-mails encontrados">
+<div class="nde-acoes">
+<button type="button" class="nde-btn nde-btn-incluir" onclick="ndIncluir('emails')">Incluir</button>
+<button type="button" class="nde-btn nde-btn-limpar" onclick="ndLimpar('emails')">Limpar</button>
 </div>
 </div>
-<div class="nd-campo-linha">
-<div class="nd-campo-grupo">
-<div class="nd-cep-cidade-linha">
-<div class="nd-cep-grupo">
-<label class="nd-label">CEP:</label>
-<input type="text" id="nd-cep" class="nd-input" placeholder="00000-000" maxlength="9" oninput="ndFormatarCEP(this)" aria-label="CEP">
-</div>
-<div class="nd-cep-grupo nd-cep-cidade">
-<label class="nd-label">UF:</label>
-<select id="nd-cidade" class="nd-input nd-uf-select" aria-label="UF">
-<option value="">UF</option>
-<option>AC</option><option>AL</option><option>AP</option><option>AM</option>
-<option>BA</option><option>CE</option><option>DF</option><option>ES</option>
-<option>GO</option><option>MA</option><option>MT</option><option>MS</option>
-<option>MG</option><option>PA</option><option>PB</option><option>PR</option>
-<option>PE</option><option>PI</option><option>RJ</option><option>RN</option>
-<option>RS</option><option>RO</option><option>RR</option><option>SC</option>
-<option>SP</option><option>SE</option><option>TO</option>
-</select>
+<div class="nde-resultado">
+<div class="nde-res-conteudo"><span class="nde-res-label">Novo(s) e-mail(s):</span> <span id="nd-res-emails" class="nde-res-valor"></span></div>
+<button type="button" id="nd-res-btn-emails" class="nde-btn-copiar nde-vazio" onclick="ndCopiar('emails')">📋 Copiar</button>
 </div>
 </div>
-</div>
-<div class="nd-campo-botoes">
-<button type="button" class="nd-btn-incluir-mini" onclick="ndIncluirCepUf()" aria-label="Incluir CEP e UF">Incluir</button>
-<button type="button" class="nd-btn-limpar-mini" onclick="ndLimparCepUf()" aria-label="Limpar CEP e UF">Limpar</button>
-</div>
-</div>
-<div class="nd-campo-linha">
-<div class="nd-campo-grupo">
-<label class="nd-label">Outra empresa do(s) sócio(s):</label>
-<input type="text" id="nd-outra-empresa" class="nd-input" placeholder="Razão Social / Fantasia" aria-label="Outra empresa em nome dos sócios">
-</div>
-<div class="nd-campo-botoes">
-<button type="button" class="nd-btn-incluir-mini" onclick="ndIncluirUmCampo('empresas','nd-outra-empresa','Outra empresa do sócio')" aria-label="Incluir outra empresa do sócio">Incluir</button>
-<button type="button" class="nd-btn-limpar-mini" onclick="ndLimparUmCampo('nd-outra-empresa')" aria-label="Limpar outra empresa do sócio">Limpar</button>
+<div class="nde-bloco">
+<div class="nde-entrada">
+<label class="nde-label" for="nd-enderecos">Novos Endereços:</label>
+<input type="text" id="nd-enderecos" class="nde-input" placeholder="Rua, Número" autocomplete="off" onkeydown="ndTecla(event,'enderecos')" aria-label="Novos endereços encontrados">
+<div class="nde-acoes">
+<button type="button" class="nde-btn nde-btn-incluir" onclick="ndIncluir('enderecos')">Incluir</button>
+<button type="button" class="nde-btn nde-btn-limpar" onclick="ndLimpar('enderecos')">Limpar</button>
 </div>
 </div>
-<div class="nd-campo-linha">
-<div class="nd-campo-grupo">
-<label class="nd-label">CNPJ:</label>
-<input type="text" id="nd-outra-cnpj" class="nd-input" placeholder="00000000/0001-00" maxlength="18" oninput="ndFormatarCNPJ(this)" aria-label="CNPJ da outra empresa">
-</div>
-<div class="nd-campo-botoes">
-<button type="button" class="nd-btn-incluir-mini" onclick="ndIncluirUmCampo('cnpjs','nd-outra-cnpj','CNPJ')" aria-label="Incluir CNPJ">Incluir</button>
-<button type="button" class="nd-btn-limpar-mini" onclick="ndLimparUmCampo('nd-outra-cnpj')" aria-label="Limpar CNPJ">Limpar</button>
+<div class="nde-resultado">
+<div class="nde-res-conteudo"><span class="nde-res-label">Novo(s) endereço(s):</span> <span id="nd-res-enderecos" class="nde-res-valor"></span></div>
+<button type="button" id="nd-res-btn-enderecos" class="nde-btn-copiar nde-vazio" onclick="ndCopiar('enderecos')">📋 Copiar</button>
 </div>
 </div>
+<div class="nde-bloco">
+<div class="nde-entrada">
+<label class="nde-label" for="nd-bairro">Bairro:</label>
+<input type="text" id="nd-bairro" class="nde-input" placeholder="Bairro" autocomplete="off" onkeydown="ndTecla(event,'bairro')" aria-label="Bairro">
+<label class="nde-label" for="nd-cep">CEP:</label>
+<input type="text" id="nd-cep" class="nde-input nde-input-cep" placeholder="00000-000" inputmode="numeric" autocomplete="off" oninput="ndMascara(this,'cep')" onkeydown="ndTecla(event,'bairro')" aria-label="CEP">
+<select id="nd-cidade" class="nde-input nde-input-uf" aria-label="UF"><option value="">UF</option><option>AC</option><option>AL</option><option>AP</option><option>AM</option><option>BA</option><option>CE</option><option>DF</option><option>ES</option><option>GO</option><option>MA</option><option>MT</option><option>MS</option><option>MG</option><option>PA</option><option>PB</option><option>PR</option><option>PE</option><option>PI</option><option>RJ</option><option>RN</option><option>RS</option><option>RO</option><option>RR</option><option>SC</option><option>SP</option><option>SE</option><option>TO</option></select>
+<div class="nde-acoes">
+<button type="button" class="nde-btn nde-btn-incluir" onclick="ndIncluir('bairro')">Incluir</button>
+<button type="button" class="nde-btn nde-btn-limpar" onclick="ndLimpar('bairro')">Limpar</button>
 </div>
 </div>
-<div class="quadro-duo quadro-resultado">
-<h3 class="titulo-secao" style="margin-top:0;">📋 Novos dados incluídos</h3>
-<div id="nd-resultado-novos" class="nd-resultado-fixo">
-<div class="nd-resultado-bloco">
-<div class="nd-resultado-bloco-conteudo"><span class="nd-res-label">Novos telefones:</span><span id="nd-res-telefones" class="nd-res-valor">—</span></div>
-<button type="button" id="nd-res-btn-telefones" class="nd-res-btn-copiar-item" style="display:none;" onclick="ndCopiarCampo('telefones','Novos telefones')" aria-label="Copiar novos telefones">📋 Copiar</button>
+<div class="nde-resultado">
+<div class="nde-res-conteudo nde-res-trio">
+<span><span class="nde-res-label">Novo Bairro:</span> <span id="nd-res-bairro" class="nde-res-valor"></span></span>
+<span><span class="nde-res-label">CEP:</span> <span id="nd-res-cep" class="nde-res-valor"></span></span>
+<span><span class="nde-res-label">UF:</span> <span id="nd-res-uf" class="nde-res-valor"></span></span>
 </div>
-<div class="nd-resultado-bloco">
-<div class="nd-resultado-bloco-conteudo"><span class="nd-res-label">Novos e-mails:</span><span id="nd-res-emails" class="nd-res-valor">—</span></div>
-<button type="button" id="nd-res-btn-emails" class="nd-res-btn-copiar-item" style="display:none;" onclick="ndCopiarCampo('emails','Novos e-mails')" aria-label="Copiar novos e-mails">📋 Copiar</button>
-</div>
-<div class="nd-resultado-bloco">
-<div class="nd-resultado-bloco-conteudo"><span class="nd-res-label">Novos endereços:</span><span id="nd-res-enderecos" class="nd-res-valor">—</span></div>
-<button type="button" id="nd-res-btn-enderecos" class="nd-res-btn-copiar-item" style="display:none;" onclick="ndCopiarCampo('enderecos','Novos endereços')" aria-label="Copiar novos endereços">📋 Copiar</button>
-</div>
-<div class="nd-resultado-bloco">
-<div class="nd-resultado-bloco-conteudo"><span class="nd-res-label">Bairro:</span><span id="nd-res-bairro" class="nd-res-valor">—</span></div>
-<button type="button" id="nd-res-btn-bairros" class="nd-res-btn-copiar-item" style="display:none;" onclick="ndCopiarCampo('bairros','Bairro')" aria-label="Copiar bairro">📋 Copiar</button>
-</div>
-<div class="nd-resultado-bloco">
-<div class="nd-resultado-bloco-conteudo"><span class="nd-res-label">CEP:</span><span id="nd-res-cep" class="nd-res-valor">—</span></div>
-<button type="button" id="nd-res-btn-ceps" class="nd-res-btn-copiar-item" style="display:none;" onclick="ndCopiarCampo('ceps','CEP')" aria-label="Copiar CEP">📋 Copiar</button>
-</div>
-<div class="nd-resultado-bloco">
-<div class="nd-resultado-bloco-conteudo"><span class="nd-res-label">UF:</span><span id="nd-res-uf" class="nd-res-valor">—</span></div>
-<button type="button" id="nd-res-btn-ufs" class="nd-res-btn-copiar-item" style="display:none;" onclick="ndCopiarCampo('ufs','UF')" aria-label="Copiar UF">📋 Copiar</button>
-</div>
-<div class="nd-resultado-bloco">
-<div class="nd-resultado-bloco-conteudo"><span class="nd-res-label">Outra empresa do(s) sócio(s):</span><span id="nd-res-empresas" class="nd-res-valor">—</span></div>
-<button type="button" id="nd-res-btn-empresas" class="nd-res-btn-copiar-item" style="display:none;" onclick="ndCopiarCampo('empresas','Outra empresa do sócio')" aria-label="Copiar outra empresa do sócio">📋 Copiar</button>
-</div>
-<div class="nd-resultado-bloco">
-<div class="nd-resultado-bloco-conteudo"><span class="nd-res-label">CNPJ:</span><span id="nd-res-cnpj" class="nd-res-valor">—</span></div>
-<button type="button" id="nd-res-btn-cnpjs" class="nd-res-btn-copiar-item" style="display:none;" onclick="ndCopiarCampo('cnpjs','CNPJ')" aria-label="Copiar CNPJ">📋 Copiar</button>
+<button type="button" id="nd-res-btn-bairro" class="nde-btn-copiar nde-vazio" onclick="ndCopiar('bairro')">📋 Copiar</button>
 </div>
 </div>
-<div class="nd-resultado-acoes">
-<button type="button" class="nd-btn-copiar" onclick="ndCopiarNovosDados()" aria-label="Copiar novos dados">📋 Copiar</button>
-<button type="button" class="nd-btn-limpar-resultado" onclick="ndLimparNovosDadosResultado()" aria-label="Limpar novos dados incluídos">🗑️ Limpar</button>
+<div class="nde-bloco">
+<div class="nde-entrada">
+<label class="nde-label" for="nd-outra-empresa">Outra empresa do(s) sócio(s):</label>
+<input type="text" id="nd-outra-empresa" class="nde-input" placeholder="Razão Social / Fantasia" autocomplete="off" onkeydown="ndTecla(event,'empresas')" aria-label="Outra empresa em nome dos sócios">
+<div class="nde-acoes">
+<button type="button" class="nde-btn nde-btn-incluir" onclick="ndIncluir('empresas')">Incluir</button>
+<button type="button" class="nde-btn nde-btn-limpar" onclick="ndLimpar('empresas')">Limpar</button>
+</div>
+</div>
+<div class="nde-resultado">
+<div class="nde-res-conteudo"><span class="nde-res-label">Razão Social:</span> <span id="nd-res-empresas" class="nde-res-valor"></span></div>
+<button type="button" id="nd-res-btn-empresas" class="nde-btn-copiar nde-vazio" onclick="ndCopiar('empresas')">📋 Copiar</button>
+</div>
+</div>
+<div class="nde-bloco">
+<div class="nde-entrada">
+<label class="nde-label" for="nd-outra-cnpj">CNPJ:</label>
+<input type="text" id="nd-outra-cnpj" class="nde-input" placeholder="00000000/0001-00" autocomplete="off" oninput="ndMascara(this,'cnpj')" onkeydown="ndTecla(event,'cnpjs')" inputmode="numeric" aria-label="CNPJ da outra empresa">
+<div class="nde-acoes">
+<button type="button" class="nde-btn nde-btn-incluir" onclick="ndIncluir('cnpjs')">Incluir</button>
+<button type="button" class="nde-btn nde-btn-limpar" onclick="ndLimpar('cnpjs')">Limpar</button>
+</div>
+</div>
+<div class="nde-resultado">
+<div class="nde-res-conteudo"><span class="nde-res-label">CNPJ:</span> <span id="nd-res-cnpjs" class="nde-res-valor"></span></div>
+<button type="button" id="nd-res-btn-cnpjs" class="nde-btn-copiar nde-vazio" onclick="ndCopiar('cnpjs')">📋 Copiar</button>
+</div>
+</div>
+<div class="nde-bloco">
+<div class="nde-entrada">
+<label class="nde-label" for="nd-socios">Sócio(a)(s):</label>
+<input type="text" id="nd-socios" class="nde-input" placeholder="nome (s) sócio(a)(s)" autocomplete="off" onkeydown="ndTecla(event,'socios')" aria-label="Nomes dos sócios">
+<div class="nde-acoes">
+<button type="button" class="nde-btn nde-btn-incluir" onclick="ndIncluir('socios')">Incluir</button>
+<button type="button" class="nde-btn nde-btn-limpar" onclick="ndLimpar('socios')">Limpar</button>
+</div>
+</div>
+<div class="nde-resultado">
+<div class="nde-res-conteudo"><span class="nde-res-label">Sócio(a)(s):</span> <span id="nd-res-socios" class="nde-res-valor"></span></div>
+<button type="button" id="nd-res-btn-socios" class="nde-btn-copiar nde-vazio" onclick="ndCopiar('socios')">📋 Copiar</button>
+</div>
 </div>
 </div>
 </div>
@@ -573,7 +548,7 @@
 </div>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" integrity="sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw" crossorigin="anonymous"></script>
 <script src="../system/Scriptonit.Engine.js"></script>
-<script src="painel.js?v=3"></script>
+<script src="painel.js?v=4"></script>
 <footer class="rodape-ibge">
 <p><strong><span class="ibge">IBGE</span> - Nossa Missão:</strong> Retratar o Brasil com informações necessárias ao conhecimento de sua realidade e ao exercício da cidadania.</p>
 <p>Site: <a href="https://www.ibge.gov.br" target="_blank" rel="noopener noreferrer">www.ibge.gov.br</a> &nbsp;&nbsp;|&nbsp;&nbsp; Telefone: 0800 721 8181</p>

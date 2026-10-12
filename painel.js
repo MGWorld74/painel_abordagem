@@ -2087,14 +2087,234 @@
   }
 
   // ============================================================
-  // NOVOS DADOS ENCONTRADOS (SEPARADO EM 2 GRUPOS)
+  // SEÇÃO: NOVOS DADOS ENCONTRADOS DA EMPRESA (formulário nd-*)
   // ============================================================
-  let ndDadosNovos = { telefones: [], emails: [], enderecos: [], bairros: [], ceps: [], ufs: [], empresas: [], cnpjs: [] };
+  var ND_SEP = { telefones: ' / ', emails: '; ', enderecos: ' / ', empresas: ' / ', cnpjs: ' - ', socios: ', ' };
+  var ND_CAMPOS = {
+    telefones: { input: 'nd-telefones', nome: 'Telefones' },
+    emails: { input: 'nd-emails', nome: 'E-mails' },
+    enderecos: { input: 'nd-enderecos', nome: 'Endereços' },
+    empresas: { input: 'nd-outra-empresa', nome: 'Razão Social' },
+    cnpjs: { input: 'nd-outra-cnpj', nome: 'CNPJ' },
+    socios: { input: 'nd-socios', nome: 'Sócio(a)(s)' }
+  };
+  var ndDados = { telefones: [], emails: [], enderecos: [], empresas: [], cnpjs: [], socios: [], bairro: '', cep: '', uf: '' };
+  var ND_RE_EMAIL = /^[^\s@;,]+@[^\s@;,]+\.[^\s@;,]{2,}$/;
 
+  function ndSoDigitos(s) {
+    return String(s || '').replace(/\D/g, '');
+  }
+  function ndFmtTelefone(v) {
+    var d = ndSoDigitos(v);
+    if ((d.length === 12 || d.length === 13) && d.indexOf('55') === 0) d = d.slice(2); // +55 colado
+    d = d.slice(0, 11);
+    if (!d) return '';
+    if (d.length <= 2) return '(' + d;
+    if (d.length <= 6) return '(' + d.slice(0, 2) + ') ' + d.slice(2);
+    if (d.length <= 10) return '(' + d.slice(0, 2) + ') ' + d.slice(2, 6) + '-' + d.slice(6);
+    return '(' + d.slice(0, 2) + ') ' + d.slice(2, 7) + '-' + d.slice(7);
+  }
+  function ndFmtCNPJ(v) {
+    var d = ndSoDigitos(v).slice(0, 14);
+    if (d.length <= 8) return d;
+    if (d.length <= 12) return d.slice(0, 8) + '/' + d.slice(8);
+    return d.slice(0, 8) + '/' + d.slice(8, 12) + '-' + d.slice(12);
+  }
+  function ndFmtCEP(v) {
+    var d = ndSoDigitos(v).slice(0, 8);
+    return d.length > 5 ? d.slice(0, 5) + '-' + d.slice(5) : d;
+  }
+  // Máscara ao digitar/colar (oninput), mantendo o cursor na mesma posição (contada em dígitos)
+  function ndMascara(input, tipo) {
+    var fn = tipo === 'telefone' ? ndFmtTelefone : tipo === 'cnpj' ? ndFmtCNPJ : ndFmtCEP;
+    var foco = document.activeElement === input;
+    var antes = foco ? ndSoDigitos(input.value.slice(0, input.selectionStart)).length : 0;
+    var novo = fn(input.value);
+    if (novo === input.value) return;
+    input.value = novo;
+    if (!foco) return;
+    var cont = 0, p = 0;
+    while (p < novo.length && cont < antes) {
+      if (/\d/.test(novo.charAt(p))) cont++;
+      p++;
+    }
+    input.setSelectionRange(p, p);
+  }
+  function ndTecla(ev, chave) {
+    if (ev.key === 'Enter') {
+      ev.preventDefault();
+      ndIncluir(chave);
+    }
+  }
 
-  // ============================================================
-  // SEÇÃO: NOVOS DADOS ENCONTRADOS (formulário nd-*)
-  // ============================================================
+  function ndInterpretar(chave, bruto) {
+    var itens = [], erro = '';
+    if (chave === 'telefones') {
+      var t = ndFmtTelefone(bruto), d = ndSoDigitos(t);
+      if (d.length === 10 || d.length === 11) itens.push(t);
+      else erro = 'Telefone incompleto. Use (##) ####-#### ou (##) #####-####.';
+    } else if (chave === 'emails') {
+      bruto.split(/[;,\s]+/).filter(Boolean).forEach(function (e) {
+        if (ND_RE_EMAIL.test(e)) itens.push(e.toLowerCase());
+        else if (!erro) erro = 'E-mail inválido: ' + e;
+      });
+    } else if (chave === 'cnpjs') {
+      var c = ndFmtCNPJ(bruto);
+      if (ndSoDigitos(c).length === 14) itens.push(c);
+      else erro = 'CNPJ incompleto. Use ########/####-##.';
+    } else {
+      bruto.split(/[;\n]+/).forEach(function (p) {
+        p = p.replace(/\s+/g, ' ').trim();
+        if (p) itens.push(p);
+      });
+    }
+    return { itens: itens, erro: erro };
+  }
+  function ndChaveUnica(chave, valor) {
+    return chave === 'cnpjs' || chave === 'telefones' ? ndSoDigitos(valor) : valor.toLowerCase();
+  }
+
+  function ndTextoCampo(chave) {
+    if (chave === 'bairro') {
+      var p = [];
+      if (ndDados.bairro) p.push('Bairro: ' + ndDados.bairro);
+      if (ndDados.cep) p.push('CEP: ' + ndDados.cep);
+      if (ndDados.uf) p.push('UF: ' + ndDados.uf);
+      return p.join(', ');
+    }
+    return ndDados[chave].join(ND_SEP[chave]);
+  }
+  function ndMarcarCopiar(chave) {
+    var btn = document.getElementById('nd-res-btn-' + chave);
+    if (btn) btn.classList.toggle('nde-vazio', !ndTextoCampo(chave));
+  }
+  function ndRenderizar() {
+    Object.keys(ND_CAMPOS).forEach(function (k) {
+      var el = document.getElementById('nd-res-' + k);
+      if (el) el.textContent = ndDados[k].join(ND_SEP[k]);
+      ndMarcarCopiar(k);
+    });
+    document.getElementById('nd-res-bairro').textContent = ndDados.bairro;
+    document.getElementById('nd-res-cep').textContent = ndDados.cep;
+    document.getElementById('nd-res-uf').textContent = ndDados.uf;
+    ndMarcarCopiar('bairro');
+  }
+
+  function ndIncluirBairro() {
+    var bairroEl = document.getElementById('nd-bairro');
+    var cepEl = document.getElementById('nd-cep');
+    var ufEl = document.getElementById('nd-cidade');
+    var bairro = bairroEl.value.replace(/\s+/g, ' ').trim();
+    var cep = ndFmtCEP(cepEl.value);
+    var uf = ufEl.value;
+    if (!bairro && !cep && !uf) {
+      mostrarToast('Preencha Bairro, CEP ou UF antes de incluir.', 'aviso');
+      return;
+    }
+    if (cep && ndSoDigitos(cep).length !== 8) {
+      mostrarToast('CEP incompleto. Use 00000-000.', 'aviso');
+      cepEl.focus();
+      return;
+    }
+    if (bairro) ndDados.bairro = bairro;
+    if (cep) ndDados.cep = cep;
+    if (uf) ndDados.uf = uf;
+    bairroEl.value = '';
+    cepEl.value = '';
+    ufEl.value = '';
+    ndRenderizar();
+    bairroEl.focus();
+  }
+  function ndIncluir(chave) {
+    if (chave === 'bairro') {
+      ndIncluirBairro();
+      return;
+    }
+    var input = document.getElementById(ND_CAMPOS[chave].input);
+    var bruto = input.value.trim();
+    if (!bruto) {
+      mostrarToast('Preencha o campo antes de incluir.', 'aviso');
+      input.focus();
+      return;
+    }
+    var r = ndInterpretar(chave, bruto);
+    if (r.erro || !r.itens.length) {
+      mostrarToast(r.erro || 'Preencha o campo antes de incluir.', 'aviso');
+      input.focus();
+      return;
+    }
+    var existentes = ndDados[chave].map(function (v) { return ndChaveUnica(chave, v); });
+    var novos = r.itens.filter(function (v) {
+      var k = ndChaveUnica(chave, v);
+      if (existentes.indexOf(k) !== -1) return false;
+      existentes.push(k);
+      return true;
+    });
+    if (!novos.length) {
+      mostrarToast('Esse dado já foi incluído.', 'aviso');
+      input.focus();
+      return;
+    }
+    ndDados[chave] = ndDados[chave].concat(novos);
+    input.value = '';
+    ndRenderizar();
+    input.focus();
+  }
+
+  // 1º clique: limpa o que está digitado. Com o campo já vazio, limpa (após confirmar) o que foi incluído.
+  function ndLimpar(chave) {
+    var ids = chave === 'bairro' ? ['nd-bairro', 'nd-cep', 'nd-cidade'] : [ND_CAMPOS[chave].input];
+    var digitado = ids.some(function (id) { return document.getElementById(id).value; });
+    if (digitado) {
+      ids.forEach(function (id) { document.getElementById(id).value = ''; });
+      document.getElementById(ids[0]).focus();
+      return;
+    }
+    if (!ndTextoCampo(chave)) return;
+    mostrarConfirm('Deseja limpar os dados já incluídos neste campo?', function () {
+      if (chave === 'bairro') ndDados.bairro = ndDados.cep = ndDados.uf = '';
+      else ndDados[chave] = [];
+      ndRenderizar();
+      mostrarToast('Dados limpos.', 'info');
+    });
+  }
+
+  function ndFallbackCopy(texto, rotulo) {
+    var ta = document.createElement('textarea');
+    ta.value = texto;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    var ok = false;
+    try {
+      ok = document.execCommand('copy');
+    } catch (e) {}
+    document.body.removeChild(ta);
+    mostrarToast(ok ? rotulo + ' copiado!' : 'Não foi possível copiar.', ok ? 'sucesso' : 'aviso');
+  }
+  function ndCopiar(chave) {
+    var texto = ndTextoCampo(chave);
+    var rotulo = chave === 'bairro' ? 'Bairro/CEP/UF' : ND_CAMPOS[chave].nome;
+    if (!texto) {
+      mostrarToast('Nada para copiar em ' + rotulo + '.', 'aviso');
+      return;
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard
+        .writeText(texto)
+        .then(function () {
+          mostrarToast(rotulo + ' copiado!', 'sucesso');
+        })
+        .catch(function () {
+          ndFallbackCopy(texto, rotulo);
+        });
+    } else {
+      ndFallbackCopy(texto, rotulo);
+    }
+  }
+
+  // Máscaras originais (também usadas na Ficha Empresa e no SIPEA)
   function ndFormatarCNPJ(input) {
     let v = input.value.replace(/\D/g, '');
     if (v.length > 14) v = v.slice(0, 14);
@@ -2138,131 +2358,6 @@
       input.selectionStart = input.selectionEnd = input.value.length;
     }
   }
-
-  // ---- NOVOS DADOS (inclusão individual por campo) ----
-  function ndIncluirUmCampo(chave, inputId, rotulo) {
-    const input = document.getElementById(inputId);
-    const valor = input.value.trim();
-    if (!valor) {
-      mostrarToast('Preencha o campo antes de incluir.', 'aviso');
-      return;
-    }
-    ndDadosNovos[chave].push(valor);
-    input.value = '';
-    ndAtualizarResultadoNovos();
-    mostrarToast(rotulo + ' incluído!', 'sucesso');
-  }
-  function ndLimparUmCampo(inputId) {
-    const input = document.getElementById(inputId);
-    if (input) input.value = '';
-  }
-  function ndIncluirCepUf() {
-    const cepInput = document.getElementById('nd-cep');
-    const ufInput = document.getElementById('nd-cidade');
-    const cep = cepInput.value.trim();
-    const uf = ufInput.value.trim();
-    if (!cep && !uf) {
-      mostrarToast('Preencha o CEP ou a UF antes de incluir.', 'aviso');
-      return;
-    }
-    if (cep) ndDadosNovos.ceps.push(cep);
-    if (uf) ndDadosNovos.ufs.push(uf);
-    cepInput.value = '';
-    ufInput.value = '';
-    ndAtualizarResultadoNovos();
-    mostrarToast('CEP/UF incluído!', 'sucesso');
-  }
-  function ndLimparCepUf() {
-    document.getElementById('nd-cep').value = '';
-    document.getElementById('nd-cidade').value = '';
-  }
-  function ndLimparNovosDadosResultado() {
-    mostrarConfirm('Deseja limpar todos os novos dados incluídos?', function () {
-      ndDadosNovos = { telefones: [], emails: [], enderecos: [], bairros: [], ceps: [], ufs: [], empresas: [], cnpjs: [] };
-      ndAtualizarResultadoNovos();
-      mostrarToast('Novos dados limpos.', 'info');
-    });
-  }
-  var ND_SEPARADORES = { emails: '; ' };
-  function ndSeparador(chave) {
-    return ND_SEPARADORES[chave] || ' / ';
-  }
-  function ndAtualizarCampoResultado(chave, elId, btnId) {
-    var valores = ndDadosNovos[chave];
-    var temValor = valores && valores.length;
-    document.getElementById(elId).textContent = temValor ? valores.join(ndSeparador(chave)) : '—';
-    var btn = document.getElementById(btnId);
-    if (btn) btn.style.display = temValor ? '' : 'none';
-  }
-  function ndAtualizarResultadoNovos() {
-    ndAtualizarCampoResultado('telefones', 'nd-res-telefones', 'nd-res-btn-telefones');
-    ndAtualizarCampoResultado('emails', 'nd-res-emails', 'nd-res-btn-emails');
-    ndAtualizarCampoResultado('enderecos', 'nd-res-enderecos', 'nd-res-btn-enderecos');
-    ndAtualizarCampoResultado('bairros', 'nd-res-bairro', 'nd-res-btn-bairros');
-    ndAtualizarCampoResultado('ceps', 'nd-res-cep', 'nd-res-btn-ceps');
-    ndAtualizarCampoResultado('ufs', 'nd-res-uf', 'nd-res-btn-ufs');
-    ndAtualizarCampoResultado('empresas', 'nd-res-empresas', 'nd-res-btn-empresas');
-    ndAtualizarCampoResultado('cnpjs', 'nd-res-cnpj', 'nd-res-btn-cnpjs');
-  }
-  function ndCopiarTexto(texto, rotulo) {
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard
-        .writeText(texto)
-        .then(function () {
-          mostrarToast(rotulo + ' copiado!', 'sucesso');
-        })
-        .catch(function () {
-          ndFallbackCopy(texto);
-        });
-    } else {
-      ndFallbackCopy(texto);
-    }
-  }
-  function ndCopiarCampo(chave, rotulo) {
-    var valores = ndDadosNovos[chave];
-    if (!valores || !valores.length) {
-      mostrarToast('Nada para copiar em ' + rotulo + '.', 'aviso');
-      return;
-    }
-    ndCopiarTexto(valores.join(ndSeparador(chave)), rotulo);
-  }
-  function ndCopiarNovosDados() {
-    var linhas = [];
-    linhas.push('Novos telefones: ' + (ndDadosNovos.telefones.length ? ndDadosNovos.telefones.join(ndSeparador('telefones')) : '—'));
-    linhas.push('Novos e-mails: ' + (ndDadosNovos.emails.length ? ndDadosNovos.emails.join(ndSeparador('emails')) : '—'));
-    linhas.push('Novos endereços: ' + (ndDadosNovos.enderecos.length ? ndDadosNovos.enderecos.join(ndSeparador('enderecos')) : '—'));
-    linhas.push('Bairro: ' + (ndDadosNovos.bairros.length ? ndDadosNovos.bairros.join(ndSeparador('bairros')) : '—'));
-    linhas.push('CEP: ' + (ndDadosNovos.ceps.length ? ndDadosNovos.ceps.join(ndSeparador('ceps')) : '—'));
-    linhas.push('UF: ' + (ndDadosNovos.ufs.length ? ndDadosNovos.ufs.join(ndSeparador('ufs')) : '—'));
-    linhas.push('Outra empresa do(s) sócio(s): ' + (ndDadosNovos.empresas.length ? ndDadosNovos.empresas.join(ndSeparador('empresas')) : '—'));
-    linhas.push('CNPJ: ' + (ndDadosNovos.cnpjs.length ? ndDadosNovos.cnpjs.join(ndSeparador('cnpjs')) : '—'));
-    var texto = linhas.join('\n');
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard
-        .writeText(texto)
-        .then(function () {
-          mostrarToast('Novos dados copiados!', 'sucesso');
-        })
-        .catch(function () {
-          ndFallbackCopy(texto);
-        });
-    } else {
-      ndFallbackCopy(texto);
-    }
-  }
-
-  function ndFallbackCopy(texto) {
-    var ta = document.createElement('textarea');
-    ta.value = texto;
-    ta.style.position = 'fixed';
-    ta.style.opacity = '0';
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand('copy');
-    document.body.removeChild(ta);
-    mostrarToast('Dados copiados!', 'sucesso');
-  }
-
 
   // ============================================================
   // SEÇÃO: OFÍCIOS E ROTAS
@@ -3112,15 +3207,14 @@
     onFiltroTipoCNPJChange: onFiltroTipoCNPJChange,
     aplicarFiltroCNPJs: aplicarFiltroCNPJs,
     aplicarFiltroStatusSecundarioCNPJ: aplicarFiltroStatusSecundarioCNPJ,
-    ndCopiarNovosDados: ndCopiarNovosDados,
     ndFormatarCEP: ndFormatarCEP,
     ndFormatarCNPJ: ndFormatarCNPJ,
     ndFormatarTelefone: ndFormatarTelefone,
-    ndIncluirUmCampo: ndIncluirUmCampo,
-    ndLimparUmCampo: ndLimparUmCampo,
-    ndIncluirCepUf: ndIncluirCepUf,
-    ndLimparCepUf: ndLimparCepUf,
-    ndLimparNovosDadosResultado: ndLimparNovosDadosResultado,
+    ndMascara: ndMascara,
+    ndTecla: ndTecla,
+    ndIncluir: ndIncluir,
+    ndLimpar: ndLimpar,
+    ndCopiar: ndCopiar,
     parecerAGU: parecerAGU,
     pesquisaCNAE: pesquisaCNAE,
     pesquisarCNPJRapido: pesquisarCNPJRapido,
