@@ -594,11 +594,25 @@
     const chaveEmp = e => (String(e.cnpj).replace(/\D/g, '') || norm(e.razao)) + '|' + norm(e.endOrig != null ? e.endOrig : e.end);
     let marcando = null;   // empresa aguardando o clique no mapa
 
-    function aplicarCorrecao(e, pos, endTxt) {
-      correcoes[chaveEmp(e)] = { lat: pos.lat, lng: pos.lng, end: endTxt };
+    function salvarBairro(e, txt) {
+      const c = correcoes[chaveEmp(e)] || {};
+      c.bairro = txt; correcoes[chaveEmp(e)] = c; gravar(CHAVE_CORRECOES, correcoes);
+      e.bairro = txt;
+      map.closePopup();
+      montarBairros(); renderBairros(); desenharPins(false);
+      const g = grupos.find(g => g.itens.includes(e));
+      if (g) g.marker.openTooltip();
+    }
+    function aplicarCorrecao(e, pos, endTxt, bairroTxt) {
+      const c = correcoes[chaveEmp(e)] || {};
+      Object.assign(c, { lat: pos.lat, lng: pos.lng, end: endTxt });
+      if (bairroTxt) c.bairro = bairroTxt;
+      correcoes[chaveEmp(e)] = c;
       gravar(CHAVE_CORRECOES, correcoes);
       e.end = endTxt; e.pos = { lat: pos.lat, lng: pos.lng }; e.aprox = false; e.corrigido = true;
+      if (bairroTxt) e.bairro = bairroTxt;
       map.closePopup();
+      montarBairros(); renderBairros();
       desenharPins(false);
       map.setView([pos.lat, pos.lng], Math.max(map.getZoom(), 17));
       const g = grupos.find(g => g.itens.includes(e));
@@ -611,10 +625,10 @@
     }
     map.on('click', ev => {
       if (!marcando) return;
-      const e = marcando, txt = e.endTxtNovo || e.end;
-      delete e.endTxtNovo;
+      const e = marcando, txt = e.endTxtNovo || e.end, bai = e.bairroTxtNovo;
+      delete e.endTxtNovo; delete e.bairroTxtNovo;
       cancelarMarcacao();
-      aplicarCorrecao(e, ev.latlng, txt);
+      aplicarCorrecao(e, ev.latlng, txt, bai);
     });
     document.addEventListener('keydown', ev => { if (ev.key === 'Escape') cancelarMarcacao(); });
 
@@ -622,29 +636,38 @@
       el.innerHTML = '<b>Corrigir o local de</b><br>' + nomeEmp(e) +
         '<label style="display:block;margin-top:8px;font-size:12px">Endereço correto (rua, número):' +
         '<input class="cx-end" type="text" value="' + esc(e.end) + '"></label>' +
+        '<label style="display:block;margin-top:6px;font-size:12px">Bairro:' +
+        '<input class="cx-end cx-bairro" type="text" list="dlBairros" value="' + esc(e.bairroKey ? nomeBairro(e.bairroKey) : e.bairro) + '"></label>' +
+        '<datalist id="dlBairros">' + bairros.filter(b => b.k).map(b => '<option value="' + esc(b.nome) + '">').join('') + '</datalist>' +
         '<div class="cx-linha"><button type="button" class="cx-buscar">🔎 Buscar este endereço</button>' +
         '<button type="button" class="cx-clicar">📍 Marcar no mapa</button></div>' +
-        '<div class="cx-linha"><button type="button" class="cx-voltar sec">Voltar</button>' +
-        (e.corrigido ? '<button type="button" class="cx-restaurar sec">Restaurar original</button>' : '') + '</div>' +
-        '<div class="cx-msg">Se a busca não achar o ponto certo, use "Marcar no mapa" e clique no local exato.</div>';
-      const campo = el.querySelector('.cx-end'), msg = el.querySelector('.cx-msg');
+        '<div class="cx-linha"><button type="button" class="cx-salvarb">💾 Salvar só o bairro</button>' +
+        '<button type="button" class="cx-voltar sec">Voltar</button>' +
+        (correcoes[chaveEmp(e)] ? '<button type="button" class="cx-restaurar sec">Restaurar original</button>' : '') + '</div>' +
+        '<div class="cx-msg">Se a busca não achar o ponto certo, use "Marcar no mapa" e clique no local exato. O bairro também é salvo junto com a busca ou a marcação.</div>';
+      const campo = el.querySelector('.cx-end'), campoB = el.querySelector('.cx-bairro'), msg = el.querySelector('.cx-msg');
       el.querySelector('.cx-voltar').addEventListener('click', () => desenharPopup(el, g));
       el.querySelector('.cx-buscar').addEventListener('click', async () => {
         const txt = campo.value.trim();
         if (!txt) { msg.textContent = 'Digite o endereço.'; return; }
         msg.textContent = 'Buscando…';
         try {
-          for (const [q] of candidatos({ end: txt, bairro: e.bairro, municipio: e.municipio, uf: e.uf })) {
+          for (const [q] of candidatos({ end: txt, bairro: campoB.value.trim() || e.bairro, municipio: e.municipio, uf: e.uf })) {
             const r = await nominatim(q);
-            if (r) { salvarCache(); aplicarCorrecao(e, r, txt); return; }
+            if (r) { salvarCache(); aplicarCorrecao(e, r, txt, campoB.value.trim()); return; }
           }
           msg.textContent = 'Endereço não encontrado. Ajuste o texto ou use "Marcar no mapa".';
         } catch (err) { msg.textContent = 'Sem resposta do serviço de busca. Tente "Marcar no mapa".'; }
       });
       el.querySelector('.cx-clicar').addEventListener('click', () => {
-        e.endTxtNovo = campo.value.trim() || e.end;
+        e.endTxtNovo = campo.value.trim() || e.end; e.bairroTxtNovo = campoB.value.trim();
         marcando = e; map.closePopup(); map.getContainer().style.cursor = 'crosshair';
         $('aviso').style.display = ''; $('aviso').textContent = 'Clique no mapa no local correto de ' + e.razao + '. (Esc cancela)';
+      });
+      el.querySelector('.cx-salvarb').addEventListener('click', () => {
+        const b = campoB.value.trim();
+        if (!b) { msg.textContent = 'Digite o bairro.'; return; }
+        salvarBairro(e, b);
       });
       const rest = el.querySelector('.cx-restaurar');
       if (rest) rest.addEventListener('click', () => {
@@ -724,8 +747,13 @@
       empresas.forEach(e => {
         delete e.pos; delete e.tentou; delete e.corrigido;
         if (e.endOrig !== undefined) e.end = e.endOrig; else e.endOrig = e.end;
+        if (e.bairroOrig !== undefined) e.bairro = e.bairroOrig; else e.bairroOrig = e.bairro;
         const c = correcoes[chaveEmp(e)];            // correções feitas pelo usuário valem mais que a localização automática
-        if (c) { if (c.end) e.end = c.end; e.pos = { lat: c.lat, lng: c.lng }; e.aprox = false; e.corrigido = true; }
+        if (c) {
+          if (c.end) e.end = c.end;
+          if (c.bairro) e.bairro = c.bairro;
+          if (c.lat != null) { e.pos = { lat: c.lat, lng: c.lng }; e.aprox = false; e.corrigido = true; }
+        }
       });
       montarBairros();
       renderBairros();
