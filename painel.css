@@ -121,7 +121,7 @@ transition: all var(--transition);
 .grid button, .grid a { width: 90px; height: 90px; }
 .grid-duo button, .grid-duo a { width: 78px; height: 78px; font-size: 11px; }
 .grid-duo-arquivos { flex-wrap: nowrap; gap: 10px; }
-.grid-duo-arquivos button, .grid-duo-arquivos a { width: calc((100% - 130px) / 14); height: auto; aspect-ratio: 1 / 1; font-size: 10.5px; }
+.grid-duo-arquivos button, .grid-duo-arquivos a { width: calc((100% - 140px) / 15); height: auto; aspect-ratio: 1 / 1; font-size: 10.5px; }
 .grid button:hover, .grid-duo button:hover, .grid-duo-orgaos button:hover,
 .grid a:hover, .grid-duo a:hover, .grid-duo-orgaos a:hover {
 background: var(--cor-primaria); color: #ffffff; transform: translateY(-4px);
@@ -549,7 +549,7 @@ body.dark .rodape-ibge { background: #2a2a2a; border-top-color: #444; color: #aa
 .grade-cnpjs { grid-template-columns: repeat(4, 1fr); }
 .grid-duo-orgaos { grid-template-columns: repeat(3, 1fr); }
 .grid-duo-arquivos { flex-wrap: wrap; }
-.grid-duo-arquivos button { width: 78px; height: 78px; aspect-ratio: auto; font-size: 11px; }
+.grid-duo-arquivos button, .grid-duo-arquivos a { width: 78px; height: 78px; aspect-ratio: auto; font-size: 11px; }
 }
 @media(max-width: 1150px) {
 .nde-bloco .nde-entrada, .nde-bloco .nde-entrada-bairro { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 8px; }
