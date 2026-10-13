@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mapa de Empresas por Status</title>
+
+  <!-- Proteção de acesso: exige login feito no index.html -->
+  <style>html { visibility: hidden; }</style>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    const SUPABASE_URL = 'https://rdxklpkukmuwwetftqde.supabase.co';
+    const SUPABASE_ANON_KEY = 'sb_publishable_sklR4egsYWIHZ3UMdWLyWQ_NHOVkD16';
+    const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // Resolve true se o usuário está logado e aprovado; senão manda para o index.html
+    const acessoOk = (async () => {
+      try {
+        const { data: { session } } = await _supabase.auth.getSession();
+        if (!session) { window.location.replace('index.html'); return false; }
+
+        const { data, error } = await _supabase
+          .from('perfis').select('aprovado').eq('id', session.user.id).maybeSingle();
+        if (error || !data || data.aprovado !== true) {
+          await _supabase.auth.signOut();
+          window.location.replace('index.html');
+          return false;
+        }
+        document.documentElement.style.visibility = 'visible';
+        return true;
+      } catch (e) {
+        window.location.replace('index.html');
+        return false;
+      }
+    })();
+  </script>
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body, html { width: 100%; height: 100%; font-family: Arial, sans-serif; }
+    #map { width: 100%; height: 100vh; }
+    .setor-tooltip {
+      background-color: rgba(0, 0, 0, 0.85);
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      padding: 6px 10px;
+      font-size: 13px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
+    .setor-tooltip b { font-size: 15px; color: #ffe066; }
+    .setor-tooltip::before { display: none; }
+    #aviso {
+      position: absolute; z-index: 1000; left: 50%; top: 12px; transform: translateX(-50%);
+      background: #fff; padding: 6px 14px; border-radius: 6px; font-size: 13px;
+      box-shadow: 0 2px 6px rgba(0,0,0,.3); max-width: 90vw; text-align: center;
+    }
+    #voltar {
+      position: absolute; z-index: 1000; left: 60px; top: 10px;
+      background: #fff; color: #222; text-decoration: none; font-size: 14px; font-weight: bold;
+      padding: 8px 14px; border-radius: 6px; box-shadow: 0 2px 6px rgba(0,0,0,.3);
+    }
+    #voltar:hover { background: #f0f0f0; }
+    #busca {
+      position: absolute; z-index: 1000; left: 170px; top: 10px;
+      background: #fff; padding: 5px 6px; border-radius: 6px; box-shadow: 0 2px 6px rgba(0,0,0,.3);
+      display: flex; align-items: center; gap: 4px;
+    }
+    #busca input { width: 190px; padding: 5px 7px; font-size: 14px; border: 1px solid #aaa; border-radius: 4px; }
+    #busca button, #acoes button, #filtros button {
+      padding: 6px 10px; font-size: 13px; font-weight: bold; border: 0; border-radius: 4px;
+      background: #000080; color: #fff; cursor: pointer;
+    }
+    #busca button:hover, #acoes button:hover, #filtros button:hover { background: #1a1ab0; }
+    #buscaMsg { font-size: 12px; color: #c00; max-width: 160px; }
+    #buscaMsg.ok { color: #060; }
+    #acoes {
+      position: absolute; z-index: 1000; right: 60px; top: 10px;
+      background: #fff; padding: 5px 6px; border-radius: 6px; box-shadow: 0 2px 6px rgba(0,0,0,.3);
+      display: flex; align-items: center; gap: 4px;
+    }
+    #acoes button.sec, #filtros button.sec { background: #ddd; color: #222; }
+    #acoes button.sec:hover, #filtros button.sec:hover { background: #ccc; }
+    #filtros {
+      position: absolute; z-index: 1000; right: 60px; top: 56px; width: 280px; max-height: calc(100vh - 110px); overflow: auto;
+      background: #fff; padding: 10px 12px; border-radius: 6px; box-shadow: 0 2px 6px rgba(0,0,0,.3); font-size: 13px; color: #222;
+    }
+    #filtros.fechado { display: none; }
+    #filtros h4 { font-size: 12px; text-transform: uppercase; color: #555; margin: 10px 0 4px; }
+    #filtros h4:first-child { margin-top: 0; }
+    #filtros label { display: flex; align-items: center; gap: 7px; padding: 3px 0; cursor: pointer; }
+    #filtros .dot { width: 12px; height: 12px; border-radius: 50%; flex: none; border: 1px solid rgba(0,0,0,.25); }
+    #filtros .n { margin-left: auto; color: #555; font-variant-numeric: tabular-nums; }
+    #filtros label.zero { opacity: .45; }
+    #fonte { font-size: 12px; color: #444; line-height: 1.4; margin-bottom: 6px; }
+    #filtros .linhaBtn { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+    #semLoc { font-size: 12px; margin-top: 8px; }
+    #semLoc summary { cursor: pointer; }
+    #semLoc li { margin: 4px 0 4px 16px; }
+    #rodape {
+      position: fixed; left: 8px; bottom: 8px; z-index: 1000; background: rgba(255,255,255,.88); color: #222;
+      font: 11px Arial, sans-serif; padding: 3px 7px; border-radius: 4px; pointer-events: none;
+    }
+    .setor-tooltip .emp { margin: 4px 0; padding-left: 7px; border-left: 4px solid #999; font-size: 12px; line-height: 1.4; color: #e8e8e8; }
+    .setor-tooltip .bd { display: inline-block; color: #fff; font-weight: bold; font-size: 12px; padding: 1px 6px; border-radius: 3px; margin-bottom: 2px; }
+    .setor-tooltip .end { font-size: 12px; color: #9ad1ff; margin-bottom: 3px; }
+    .setor-tooltip .aprox { font-size: 11px; color: #ffb74d; margin-top: 3px; }
+    .pin-empresa { background: none; border: 0; }
+    .pin-empresa svg { filter: drop-shadow(0 1px 2px rgba(0,0,0,.55)); }
+    .popup-emp { font-size: 13px; min-width: 240px; max-width: 320px; }
+    .popup-emp .it { margin: 6px 0; padding-left: 8px; border-left: 4px solid #999; line-height: 1.45; }
+    .popup-emp .bd { display: inline-block; color: #fff; font-weight: bold; font-size: 12px; padding: 1px 6px; border-radius: 3px; }
+    .popup-emp a { color: #000080; font-weight: bold; }
+    @media (max-width: 760px) {
+      #busca { top: 58px; left: 10px; }
+      #acoes { top: 106px; right: auto; left: 10px; }
+      #filtros { top: 152px; right: auto; left: 10px; }
+    }
+  </style>
+</head>
+<body>
+
+  <a id="voltar" href="painel.html">← Voltar</a>
+  <div id="busca">
+    <input id="buscaTxt" type="text" autocomplete="off" placeholder="Empresa, CNPJ ou endereço">
+    <button id="buscaBtn" type="button">Buscar</button>
+    <span id="buscaMsg"></span>
+  </div>
+  <div id="acoes">
+    <button id="btnImportar" type="button">📂 Importar planilha</button>
+    <button id="btnFiltros" type="button" class="sec">☰ Filtros</button>
+    <input type="file" id="arquivo" accept=".xlsx,.xls,.csv" hidden>
+  </div>
+  <div id="filtros">
+    <h4>Fonte dos dados</h4>
+    <div id="fonte">—</div>
+    <div class="linhaBtn">
+      <button id="btnPainel" type="button" class="sec" style="display:none">Usar planilha do painel</button>
+    </div>
+    <h4>Status das empresas</h4>
+    <div id="legenda"></div>
+    <h4>Setores (KMZ)</h4>
+    <label><input type="checkbox" id="chkABT" checked> Setores ABT</label>
+    <label><input type="checkbox" id="chkAJA" checked> Setores AJA</label>
+    <details id="semLoc" style="display:none"><summary id="semTit"></summary><ul id="semLista"></ul></details>
+  </div>
+  <div id="map"></div>
+  <div id="aviso">Carregando mapa…</div>
+  <div id="rodape"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" integrity="sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw" crossorigin="anonymous"></script>
+
+  <script>
+    // ===== CONFIGURAÇÃO =====
+    const CHAVE_PAINEL = 'dadosImportadosCNPJ';        // onde o painel.html guarda a planilha importada
+    const CHAVE_OUTRA = 'mapaEmpresasPlanilhaPropria'; // planilha importada direto neste mapa (substitui a do painel)
+    const CHAVE_GEO = 'mapaEmpresasGeo_v1';            // endereços já localizados (cache)
+    const KMZS = [
+      { nome: 'ABT', arquivo: 'ABT.kmz', chk: 'chkABT' },
+      { nome: 'AJA', arquivo: 'AJA.kmz', chk: 'chkAJA' }
+    ];
+    // Somente estes status aparecem no mapa (COLETADA, FAC e outros ficam de fora)
+    const STATUS = {
+      'ABORDADA': '#2563eb', 'ABORDAGEM EM ANDAMENTO': '#0891b2', 'ACORDADA': '#16a34a', 'COBRADA': '#ca8a04',
+      'EM ATRASO': '#dc2626', 'NADA FEITO': '#6b7280', 'NOTIFICADA': '#ea580c', 'RENEGOCIADA': '#9333ea'
+    };
+    const COR_MISTO = '#374151';
+
+    const $ = id => document.getElementById(id);
+    const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const norm = s => String(s == null ? '' : s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().trim().replace(/\s+/g, ' ');
+    const chaveCol = s => norm(s).replace(/[^A-Z0-9]/g, '');
+    const espera = ms => new Promise(r => setTimeout(r, ms));
+
+    // ===== MAPA (mesmo modelo do mapaABT / mapaAJA) =====
+    const map = L.map('map', { preferCanvas: true }).setView([-22.96, -43.38], 12);
+    const canvas = L.canvas({ padding: 0.5 });
+    const esri = 'https://server.arcgisonline.com/ArcGIS/rest/services/';
+    const attrEsri = 'Imagens © Esri, Maxar, Earthstar Geographics';
+    const satelite = L.tileLayer(esri + 'World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: attrEsri });
+    const nomes = L.layerGroup([
+      L.tileLayer(esri + 'Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 }),
+      L.tileLayer(esri + 'Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 })
+    ]);
+    const hibrido = L.layerGroup([
+      L.tileLayer(esri + 'World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: attrEsri }),
+      nomes
+    ]);
+    const ruas = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' });
+    satelite.addTo(map);
+    L.control.layers({
+      'Satélite': satelite,
+      'Satélite com nomes de ruas': hibrido,
+      'Mapa de ruas': ruas
+    }, null, { position: 'topright', collapsed: true }).addTo(map);
+
+    const ESTILO_SETOR = { color: '#ffff00', weight: 3, fill: true, fillColor: '#000080', fillOpacity: 0 };
+    const ESTILO_FACE = { color: '#ff0000', weight: 2, interactive: false, renderer: canvas };
+    const gruposKmz = {};   // 'ABT' -> L.featureGroup
+
+    // ===== KMZ (setores e faces, só como fundo) =====
+    const parseCoords = txt => txt.trim().split(/\s+/).map(p => {
+      const [lon, lat] = p.split(',');
+      return [parseFloat(lat), parseFloat(lon)];
+    }).filter(c => !isNaN(c[0]) && !isNaN(c[1]));
+
+    async function carregarKMZ(cfg) {
+      const grupo = L.featureGroup();
+      gruposKmz[cfg.nome] = grupo;
+      const resp = await fetch(cfg.arquivo);
+      if (!resp.ok) throw new Error('Não foi possível baixar o ' + cfg.arquivo);
+      const zip = await JSZip.loadAsync(await resp.arrayBuffer());
+      const kmlFile = zip.file('doc.kml') || (zip.file(/\.kml$/i) || [])[0];
+      if (!kmlFile) throw new Error('Nenhum .kml dentro de ' + cfg.arquivo);
+      const dom = new DOMParser().parseFromString(await kmlFile.async('string'), 'text/xml');
+      if (dom.querySelector('parsererror')) throw new Error('KML corrompido em ' + cfg.arquivo);
+      const pms = Array.from(dom.getElementsByTagName('Placemark'));
+
+      pms.filter(pm => pm.getElementsByTagName('LineString').length).forEach(pm => {
+        for (const ls of pm.getElementsByTagName('LineString')) {
+          const c = ls.getElementsByTagName('coordinates')[0];
+          if (c) L.polyline(parseCoords(c.textContent), ESTILO_FACE).addTo(grupo);
+        }
+      });
+      pms.filter(pm => pm.getElementsByTagName('Polygon').length).forEach(pm => {
+        const nomeEl = pm.getElementsByTagName('name')[0];
+        const codigo = (nomeEl ? nomeEl.textContent : '').trim();
+        if (!codigo) return;
+        const polys = [];
+        for (const pg of pm.getElementsByTagName('Polygon')) {
+          const rings = [];
+          const outer = pg.getElementsByTagName('outerBoundaryIs')[0];
+          if (outer) rings.push(parseCoords(outer.getElementsByTagName('coordinates')[0].textContent));
+          for (const inner of pg.getElementsByTagName('innerBoundaryIs')) {
+            rings.push(parseCoords(inner.getElementsByTagName('coordinates')[0].textContent));
+          }
+          if (rings.length) polys.push(rings);
+        }
+        if (!polys.length) return;
+        const layer = L.polygon(polys.length === 1 ? polys[0] : polys, Object.assign({ renderer: canvas, interactive: true }, ESTILO_SETOR));
+        layer.bindTooltip('Setor ' + esc(codigo.slice(0, -4)) + '<b>' + esc(codigo.slice(-4)) + '</b>',
+          { sticky: true, direction: 'auto', className: 'setor-tooltip' });
+        layer.on('mouseover', () => layer.setStyle({ weight: 5, color: '#ffffff' }));
+        layer.on('mouseout', () => layer.setStyle(ESTILO_SETOR));
+        layer.addTo(grupo);
+      });
+      if ($(cfg.chk).checked) grupo.addTo(map);
+    }
+
+    KMZS.forEach(cfg => $(cfg.chk).addEventListener('change', e => {
+      const g = gruposKmz[cfg.nome];
+      if (!g) return;
+      e.target.checked ? g.addTo(map) : map.removeLayer(g);
+    }));
+
+    // ===== DADOS DA PLANILHA =====
+    const COLS = {
+      status: ['STATUSDAEMPRESA', 'STATUSEMPRESA'],
+      endereco: ['ENDERECODAUC', 'ENDERECO'],
+      razao: ['RAZAOSOCIAL'], fantasia: ['NOMEFANTASIA'], cnpj: ['CNPJ'],
+      bairro: ['BAIRRODAUC', 'BAIRROUC'], cep: ['CEPDAUC', 'CEPUC'],
+      municipio: ['MUNICIPIO', 'MUNICIPIODAUC'], uf: ['UF', 'UFDAUC'],
+      resp: ['RESPONSAVELPELAABORDAGEM', 'NOMERESPONSAVELABORDAGEM']
+    };
+
+    // Recebe linhas (como o painel guarda, ou direto de .xlsx/.csv) e devolve só as empresas com os status pedidos
+    function extrair(linhas) {
+      if (!linhas || !linhas.length) return [];
+      const mapaCols = {};
+      Object.keys(linhas[0]).forEach(h => mapaCols[chaveCol(h)] = h);
+      const c = {};
+      Object.keys(COLS).forEach(k => { c[k] = null; for (const a of COLS[k]) if (mapaCols[a]) { c[k] = mapaCols[a]; break; } });
+      if (!c.status || !c.endereco) return null;
+      const v = (l, k) => c[k] ? String(l[c[k]] == null ? '' : l[c[k]]).trim() : '';
+      const out = [];
+      for (const l of linhas) {
+        const st = norm(v(l, 'status'));
+        if (!STATUS[st]) continue;
+        out.push({
+          st, end: v(l, 'endereco'), razao: v(l, 'razao'), fantasia: v(l, 'fantasia'),
+          cnpj: v(l, 'cnpj').replace(/^'+|'+$/g, ''), bairro: v(l, 'bairro'), cep: v(l, 'cep').replace(/\D/g, ''),
+          municipio: v(l, 'municipio') || 'Rio de Janeiro', uf: v(l, 'uf') || 'RJ', resp: v(l, 'resp')
+        });
+      }
+      return out;
+    }
+
+    function lerJSON(chave) { try { return JSON.parse(localStorage.getItem(chave)); } catch (e) { return null; } }
+
+    let empresas = [], fonteTxt = '';
+    function carregarDados() {
+      const propria = lerJSON(CHAVE_OUTRA);
+      if (propria && Array.isArray(propria.empresas)) {
+        empresas = propria.empresas;
+        fonteTxt = 'Planilha importada neste mapa: <b>' + esc(propria.nome) + '</b>';
+        $('btnPainel').style.display = '';
+        return true;
+      }
+      $('btnPainel').style.display = 'none';
+      const doPainel = lerJSON(CHAVE_PAINEL);
+      if (Array.isArray(doPainel) && doPainel.length) {
+        const r = extrair(doPainel);
+        if (r) { empresas = r; fonteTxt = 'Planilha importada no <b>painel.html</b>'; return true; }
+      }
+      empresas = [];
+      fonteTxt = 'Nenhuma planilha encontrada. Importe uma planilha no painel ou use o botão "Importar planilha".';
+      return false;
+    }
+
+    // ===== IMPORTAR OUTRA PLANILHA (substitui os dados deste mapa) =====
+    function importarArquivo(file) {
+      const csv = /\.csv$/i.test(file.name);
+      const r = new FileReader();
+      r.onload = e => {
+        try {
+          const wb = csv ? XLSX.read(String(e.target.result).replace(/^\uFEFF/, ''), { type: 'string', raw: true })
+                         : XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+          const linhas = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' });
+          const emp = extrair(linhas);
+          if (!emp) { alert('Não encontrei as colunas de status ("Status da Empresa" / "StatusEmpresa") e de endereço ("Endereço da UC" / "Endereco").'); return; }
+          try { localStorage.setItem(CHAVE_OUTRA, JSON.stringify({ nome: file.name, empresas: emp })); }
+          catch (err) { alert('Não foi possível guardar a planilha no navegador; ela será usada só até recarregar a página.'); }
+          empresas = emp;
+          fonteTxt = 'Planilha importada neste mapa: <b>' + esc(file.name) + '</b>';
+          $('btnPainel').style.display = '';
+          iniciarDados();
+        } catch (err) { alert('Não foi possível ler o arquivo como planilha.'); console.error(err); }
+      };
+      csv ? r.readAsText(file, 'UTF-8') : r.readAsArrayBuffer(file);
+    }
+    $('btnImportar').addEventListener('click', () => $('arquivo').click());
+    $('arquivo').addEventListener('change', e => { if (e.target.files[0]) importarArquivo(e.target.files[0]); e.target.value = ''; });
+    $('btnPainel').addEventListener('click', () => { localStorage.removeItem(CHAVE_OUTRA); iniciarDados(true); });
+    $('btnFiltros').addEventListener('click', () => $('filtros').classList.toggle('fechado'));
+    ['busca', 'acoes', 'filtros'].forEach(id => { L.DomEvent.disableClickPropagation($(id)); L.DomEvent.disableScrollPropagation($(id)); });
+
+    // se a planilha do painel mudar em outra aba, atualiza aqui (a menos que haja planilha própria)
+    window.addEventListener('storage', e => { if (e.key === CHAVE_PAINEL && !localStorage.getItem(CHAVE_OUTRA)) iniciarDados(true); });
+
+    // ===== GEOLOCALIZAÇÃO DOS ENDEREÇOS (OpenStreetMap/Nominatim, com cache) =====
+    const cache = lerJSON(CHAVE_GEO) || {};
+    const salvarCache = () => { try { localStorage.setItem(CHAVE_GEO, JSON.stringify(cache)); } catch (e) {} };
+    let ultimaChamada = 0, execId = 0;
+
+    function ruaLimpa(r) {
+      return r.replace(/^AV\.?\s+/i, 'Avenida ').replace(/^R\.?\s+/i, 'Rua ').replace(/^(EST|ESTR)\.?\s+/i, 'Estrada ')
+              .replace(/^TRAV\.?\s+/i, 'Travessa ').replace(/^PC[AÇ]?\.?\s+/i, 'Praça ').replace(/^DAS AMERICAS/i, 'Avenida das Americas');
+    }
+    function candidatos(e) {
+      const m = e.end.match(/^([^,]+),\s*(\d+)/);
+      const rua = ruaLimpa((m ? m[1] : e.end.split(',')[0]).trim()), num = m ? m[2] : '';
+      const cid = e.municipio + ', ' + e.uf + ', Brasil';
+      const l = [];
+      if (num) {
+        l.push([rua + ' ' + num + ', ' + e.bairro + ', ' + cid, false]);
+        l.push([rua + ' ' + num + ', ' + cid, false]);
+      }
+      l.push([rua + ', ' + e.bairro + ', ' + cid, true]);
+      return l;
+    }
+    async function pedir(url) {
+      for (let t = 0; t < 3; t++) {
+        const dt = Date.now() - ultimaChamada;
+        if (dt < 1100) await espera(1100 - dt);
+        ultimaChamada = Date.now();
+        const r = await fetch(url);
+        if (r.status === 429 || r.status === 503) { await espera(5000); continue; }
+        if (!r.ok) return null;
+        return r.json();
+      }
+      return null;
+    }
+    const dentroRJ = (lat, lng) => lat > -23.4 && lat < -20.7 && lng > -44.9 && lng < -40.9;
+
+    async function nominatim(q) {
+      if (cache[q] !== undefined) return cache[q];
+      const j = await pedir('https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=1&countrycodes=br&q=' + encodeURIComponent(q));
+      if (j === null) throw new Error('rede');
+      const r = j[0];
+      if (r) {
+        const lat = parseFloat(r.lat), lng = parseFloat(r.lon);
+        if (dentroRJ(lat, lng)) return cache[q] = { lat, lng, aprox: !(r.address && r.address.house_number) };
+      }
+      return cache[q] = null;
+    }
+    async function porCep(cep) {
+      const k = 'CEP:' + cep;
+      if (cache[k] !== undefined) return cache[k];
+      if (cep.length !== 8) return null;
+      const dt = Date.now() - ultimaChamada; if (dt < 300) await espera(300 - dt);
+      ultimaChamada = Date.now();
+      try {
+        const r = await fetch('https://cep.awesomeapi.com.br/json/' + cep);
+        if (r.ok) {
+          const j = await r.json(), lat = parseFloat(j.lat), lng = parseFloat(j.lng);
+          if (!isNaN(lat) && dentroRJ(lat, lng)) return cache[k] = { lat, lng, aprox: true };
+        }
+      } catch (e) {}
+      return cache[k] = null;
+    }
+
+    async function localizarTodas() {
+      const id = ++execId;
+      const pend = empresas.filter(e => !e.pos && e.end);
+      let feitas = 0, falhasRede = 0, nova = 0;
+      for (const e of pend) {
+        if (id !== execId) return;
+        try {
+          for (const [q, fa] of candidatos(e)) {
+            const r = await nominatim(q);
+            if (r) { e.pos = { lat: r.lat, lng: r.lng }; e.aprox = r.aprox || fa; break; }
+          }
+          if (!e.pos) { const r = await porCep(e.cep); if (r) { e.pos = { lat: r.lat, lng: r.lng }; e.aprox = true; } }
+          falhasRede = 0;
+        } catch (err) {
+          if (++falhasRede >= 3) { $('aviso').style.display = ''; $('aviso').textContent = 'Sem resposta do serviço de localização. Verifique a internet e recarregue a página.'; break; }
+        }
+        e.tentou = true;
+        feitas++;
+        if (e.pos) nova++;
+        if (feitas % 5 === 0) { $('aviso').style.display = ''; $('aviso').textContent = 'Localizando endereços… ' + feitas + ' / ' + pend.length; desenharPins(false); salvarCache(); }
+      }
+      if (id !== execId) return;
+      salvarCache();
+      $('aviso').style.display = 'none';
+      desenharPins(true);
+    }
+
+    // ===== PINS =====
+    const camadaPins = L.featureGroup().addTo(map);
+    const ativos = new Set(Object.keys(STATUS));
+    let grupos = [];
+
+    function iconePin(cor, n) {
+      const svg = '<svg width="30" height="40" viewBox="0 0 30 40" xmlns="http://www.w3.org/2000/svg">' +
+        '<path d="M15 1C7.3 1 1 7.2 1 14.8 1 25 15 39 15 39s14-14 14-24.2C29 7.2 22.7 1 15 1z" fill="' + cor + '" stroke="#fff" stroke-width="2"/>' +
+        (n > 1 ? '<text x="15" y="19" text-anchor="middle" font-size="12" font-weight="bold" font-family="Arial" fill="#fff">' + n + '</text>'
+               : '<circle cx="15" cy="14.5" r="4.5" fill="#fff"/>') + '</svg>';
+      return L.divIcon({ html: svg, className: 'pin-empresa', iconSize: [30, 40], iconAnchor: [15, 39], tooltipAnchor: [0, -34], popupAnchor: [0, -34] });
+    }
+    const selo = st => '<span class="bd" style="background:' + STATUS[st] + '">' + esc(st) + '</span>';
+    const nomeEmp = e => esc(e.razao) + (e.fantasia && e.fantasia !== 'S/D' ? ' (' + esc(e.fantasia) + ')' : '');
+
+    function tooltipGrupo(g) {
+      const it = g.itens.slice(0, 8).map(e =>
+        '<div class="emp" style="border-color:' + STATUS[e.st] + '">' + selo(e.st) + '<br>' + nomeEmp(e) + '</div>').join('');
+      return '<div class="end">' + esc(g.itens[0].end) + '</div>' + it +
+        (g.itens.length > 8 ? '<div class="emp">+ ' + (g.itens.length - 8) + ' empresa(s)… clique para ver todas</div>' : '') +
+        (g.itens.some(e => e.aprox) ? '<div class="aprox">⚠ Localização aproximada</div>' : '');
+    }
+    function popupGrupo(g) {
+      const it = g.itens.map(e =>
+        '<div class="it" style="border-color:' + STATUS[e.st] + '">' + selo(e.st) + '<br><b>' + nomeEmp(e) + '</b>' +
+        (e.cnpj ? '<br>CNPJ: ' + esc(e.cnpj) : '') +
+        (e.bairro ? '<br>Bairro: ' + esc(e.bairro) : '') +
+        (e.resp ? '<br>Responsável: ' + esc(e.resp) : '') + '</div>').join('');
+      return '<div class="popup-emp"><b>' + esc(g.itens[0].end) + '</b>' + it +
+        (g.itens.some(e => e.aprox) ? '<div style="color:#b45309;font-size:12px">⚠ Localização aproximada</div>' : '') +
+        '<div style="margin-top:6px"><a target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=' + g.pos.lat + ',' + g.pos.lng + '">Abrir no Google Maps</a></div></div>';
+    }
+
+    function visiveis() {
+      return empresas.filter(e => e.pos && ativos.has(e.st));
+    }
+
+    function desenharPins(ajustar) {
+      camadaPins.clearLayers();
+      const por = {};
+      visiveis().forEach(e => {
+        const k = e.pos.lat.toFixed(5) + ',' + e.pos.lng.toFixed(5);
+        (por[k] = por[k] || { pos: e.pos, itens: [] }).itens.push(e);
+      });
+      grupos = Object.values(por);
+      grupos.forEach(g => {
+        const sts = [...new Set(g.itens.map(e => e.st))];
+        const cor = sts.length === 1 ? STATUS[sts[0]] : COR_MISTO;
+        const mk = L.marker([g.pos.lat, g.pos.lng], { icon: iconePin(cor, g.itens.length), riseOnHover: true });
+        mk.bindTooltip(() => tooltipGrupo(g), { direction: 'top', className: 'setor-tooltip', opacity: 1 });
+        mk.bindPopup(() => popupGrupo(g), { maxWidth: 340 });
+        g.marker = mk;
+        mk.addTo(camadaPins);
+      });
+      if (ajustar && grupos.length) map.fitBounds(camadaPins.getBounds(), { padding: [50, 50], maxZoom: 17 });
+      atualizarLegenda();
+    }
+
+    // ===== LEGENDA / FILTROS =====
+    function atualizarLegenda() {
+      const cont = {};
+      empresas.forEach(e => cont[e.st] = (cont[e.st] || 0) + 1);
+      $('legenda').innerHTML = Object.keys(STATUS).map(s =>
+        '<label' + (cont[s] ? '' : ' class="zero"') + '><input type="checkbox" data-s="' + s + '"' + (ativos.has(s) ? ' checked' : '') + '>' +
+        '<span class="dot" style="background:' + STATUS[s] + '"></span>' + esc(s) + '<span class="n">' + (cont[s] || 0) + '</span></label>').join('');
+      $('legenda').querySelectorAll('input').forEach(i => i.addEventListener('change', () => {
+        i.checked ? ativos.add(i.dataset.s) : ativos.delete(i.dataset.s);
+        desenharPins(false);
+      }));
+      $('fonte').innerHTML = fonteTxt;
+      const sem = empresas.filter(e => !e.pos && (e.tentou || !e.end));
+      $('semLoc').style.display = sem.length ? '' : 'none';
+      $('semTit').textContent = sem.length + ' empresa(s) sem localização';
+      $('semLista').innerHTML = sem.map(e => '<li>' + esc(e.razao) + ' — ' + esc(e.st) + '<br>' + (e.end ? esc(e.end) : '(sem endereço)') + '</li>').join('');
+      const loc = empresas.filter(e => e.pos).length;
+      $('rodape').textContent = empresas.length + ' empresa(s) · ' + loc + ' localizada(s) · ' + grupos.length + ' ponto(s) no mapa';
+    }
+
+    // ===== BUSCA (empresa, CNPJ ou endereço) =====
+    function buscar() {
+      const msg = $('buscaMsg'); msg.className = ''; msg.textContent = '';
+      const q = norm($('buscaTxt').value), qd = q.replace(/\D/g, '');
+      if (!q) { msg.textContent = 'Digite algo.'; return; }
+      const g = grupos.find(g => g.itens.some(e =>
+        norm([e.razao, e.fantasia, e.end, e.bairro].join(' ')).includes(q) || (qd.length >= 4 && e.cnpj.replace(/\D/g, '').includes(qd))));
+      if (!g) { msg.textContent = 'Não encontrada.'; return; }
+      map.setView([g.pos.lat, g.pos.lng], Math.max(map.getZoom(), 17));
+      g.marker.openTooltip();
+    }
+    $('buscaBtn').addEventListener('click', buscar);
+    $('buscaTxt').addEventListener('keydown', e => { if (e.key === 'Enter') buscar(); });
+    $('buscaTxt').addEventListener('input', () => $('buscaMsg').textContent = '');
+
+    // ===== INÍCIO =====
+    function iniciarDados(recarregar) {
+      if (recarregar) carregarDados();
+      empresas.forEach(e => { delete e.pos; delete e.tentou; });
+      // aproveita o que já está no cache antes de consultar a internet
+      empresas.forEach(e => {
+        if (!e.end) return;
+        for (const [q, fa] of candidatos(e)) { const r = cache[q]; if (r) { e.pos = { lat: r.lat, lng: r.lng }; e.aprox = r.aprox || fa; break; } }
+      });
+      desenharPins(true);
+      const faltam = empresas.some(e => !e.pos && e.end);
+      if (faltam) { $('aviso').style.display = ''; $('aviso').textContent = 'Localizando endereços…'; localizarTodas(); }
+      else { $('aviso').style.display = 'none'; }
+      if (!empresas.length) { $('aviso').style.display = ''; $('aviso').textContent = fonteTxt.replace(/<[^>]+>/g, ''); }
+    }
+
+    (async () => {
+      try {
+        if (!(await acessoOk)) return;
+        carregarDados();
+        const res = await Promise.allSettled(KMZS.map(carregarKMZ));
+        const erros = res.filter(r => r.status === 'rejected').map(r => r.reason.message);
+        if (erros.length) console.warn(erros.join(' | '));
+        const todos = L.featureGroup(Object.values(gruposKmz));
+        if (todos.getBounds().isValid()) map.fitBounds(todos.getBounds());
+        iniciarDados(false);
+        if (erros.length) { $('rodape').title = erros.join('\n'); }
+      } catch (e) {
+        console.error(e);
+        $('aviso').textContent = 'Erro ao carregar o mapa: ' + e.message;
+      }
+    })();
+  </script>
+</body>
+</html>
