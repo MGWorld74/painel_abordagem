@@ -573,6 +573,9 @@
     function popupGrupo(g) {
       const el = document.createElement('div');
       el.className = 'popup-emp';
+      // Ao trocar o conteúdo da janela, o botão clicado deixa de existir no meio do clique e o Leaflet passa a achar
+      // que o clique foi no mapa (o que fecha a janela). Parar a propagação aqui evita isso.
+      el.addEventListener('click', ev => ev.stopPropagation());
       desenharPopup(el, g);
       return el;
     }
