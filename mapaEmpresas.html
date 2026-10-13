@@ -69,11 +69,11 @@
       display: flex; align-items: center; gap: 4px;
     }
     #busca input { width: 190px; padding: 5px 7px; font-size: 14px; border: 1px solid #aaa; border-radius: 4px; }
-    #busca button, #acoes button, #filtros button {
+    #busca button, #acoes button, #lateral button {
       padding: 6px 10px; font-size: 13px; font-weight: bold; border: 0; border-radius: 4px;
       background: #000080; color: #fff; cursor: pointer;
     }
-    #busca button:hover, #acoes button:hover, #filtros button:hover { background: #1a1ab0; }
+    #busca button:hover, #acoes button:hover, #lateral button:hover { background: #1a1ab0; }
     #buscaMsg { font-size: 12px; color: #c00; max-width: 160px; }
     #buscaMsg.ok { color: #060; }
     #acoes {
@@ -81,21 +81,27 @@
       background: #fff; padding: 5px 6px; border-radius: 6px; box-shadow: 0 2px 6px rgba(0,0,0,.3);
       display: flex; align-items: center; gap: 4px;
     }
-    #acoes button.sec, #filtros button.sec { background: #ddd; color: #222; }
-    #acoes button.sec:hover, #filtros button.sec:hover { background: #ccc; }
-    #filtros {
-      position: absolute; z-index: 1000; right: 60px; top: 56px; width: 280px; max-height: calc(100vh - 110px); overflow: auto;
-      background: #fff; padding: 10px 12px; border-radius: 6px; box-shadow: 0 2px 6px rgba(0,0,0,.3); font-size: 13px; color: #222;
+    #acoes button.sec, #lateral button.sec { background: #ddd; color: #222; }
+    #acoes button.sec:hover, #lateral button.sec:hover { background: #ccc; }
+    #lateral {
+      position: absolute; z-index: 1000; right: 60px; top: 56px; width: 300px; max-height: calc(100vh - 110px); overflow: auto;
+      display: flex; flex-direction: column; gap: 8px;
     }
-    #filtros.fechado { display: none; }
-    #filtros h4 { font-size: 12px; text-transform: uppercase; color: #555; margin: 10px 0 4px; }
-    #filtros h4:first-child { margin-top: 0; }
-    #filtros label { display: flex; align-items: center; gap: 7px; padding: 3px 0; cursor: pointer; }
-    #filtros .dot { width: 12px; height: 12px; border-radius: 50%; flex: none; border: 1px solid rgba(0,0,0,.25); }
-    #filtros .n { margin-left: auto; color: #555; font-variant-numeric: tabular-nums; }
-    #filtros label.zero { opacity: .45; }
+    #lateral.fechado { display: none; }
+    #lateral .cartao { background: #fff; padding: 10px 12px; border-radius: 6px; box-shadow: 0 2px 6px rgba(0,0,0,.3); font-size: 13px; color: #222; }
+    #lateral .lin { display: flex; align-items: center; gap: 7px; padding: 3px 0; }
+    #lateral .lin > span:first-of-type { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #lateral input[type=color] { width: 30px; height: 22px; padding: 0; border: 1px solid #999; border-radius: 3px; background: none; cursor: pointer; flex: none; }
+    #lateral select { width: 165px; padding: 3px; font-size: 12px; border: 1px solid #aaa; border-radius: 4px; flex: none; }
+    #lateral .nota { font-size: 11px; color: #666; margin-top: 4px; line-height: 1.35; }
+    #lateral h4 { font-size: 12px; text-transform: uppercase; color: #555; margin: 10px 0 4px; }
+    #lateral h4:first-child { margin-top: 0; }
+    #lateral label { display: flex; align-items: center; gap: 7px; padding: 3px 0; cursor: pointer; }
+    #lateral .dot { width: 12px; height: 12px; border-radius: 50%; flex: none; border: 1px solid rgba(0,0,0,.25); }
+    #lateral .n { margin-left: auto; color: #555; font-variant-numeric: tabular-nums; }
+    #lateral label.zero { opacity: .45; }
     #fonte { font-size: 12px; color: #444; line-height: 1.4; margin-bottom: 6px; }
-    #filtros .linhaBtn { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+    #lateral .linhaBtn { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
     #semLoc { font-size: 12px; margin-top: 8px; }
     #semLoc summary { cursor: pointer; }
     #semLoc li { margin: 4px 0 4px 16px; }
@@ -106,17 +112,24 @@
     .setor-tooltip .emp { margin: 4px 0; padding-left: 7px; border-left: 4px solid #999; font-size: 12px; line-height: 1.4; color: #e8e8e8; }
     .setor-tooltip .bd { display: inline-block; color: #fff; font-weight: bold; font-size: 12px; padding: 1px 6px; border-radius: 3px; margin-bottom: 2px; }
     .setor-tooltip .end { font-size: 12px; color: #9ad1ff; margin-bottom: 3px; }
+    .setor-tooltip .apm { color: #ffe066; font-weight: bold; }
+    .setor-tooltip .ok { font-size: 11px; color: #8be28b; margin-top: 3px; }
     .setor-tooltip .aprox { font-size: 11px; color: #ffb74d; margin-top: 3px; }
     .pin-empresa { background: none; border: 0; }
     .pin-empresa svg { filter: drop-shadow(0 1px 2px rgba(0,0,0,.55)); }
     .popup-emp { font-size: 13px; min-width: 240px; max-width: 320px; }
     .popup-emp .it { margin: 6px 0; padding-left: 8px; border-left: 4px solid #999; line-height: 1.45; }
     .popup-emp .bd { display: inline-block; color: #fff; font-weight: bold; font-size: 12px; padding: 1px 6px; border-radius: 3px; }
+    .popup-emp .cx-linha { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+    .popup-emp button { padding: 5px 9px; font-size: 12px; font-weight: bold; border: 0; border-radius: 4px; background: #000080; color: #fff; cursor: pointer; }
+    .popup-emp button.sec { background: #ddd; color: #222; }
+    .popup-emp .cx-end { width: 100%; padding: 5px; font-size: 13px; border: 1px solid #aaa; border-radius: 4px; margin-top: 3px; }
+    .popup-emp .cx-msg { font-size: 12px; margin-top: 6px; color: #555; }
     .popup-emp a { color: #000080; font-weight: bold; }
     @media (max-width: 760px) {
       #busca { top: 58px; left: 10px; }
       #acoes { top: 106px; right: auto; left: 10px; }
-      #filtros { top: 152px; right: auto; left: 10px; }
+      #lateral { top: 152px; right: auto; left: 10px; width: min(300px, calc(100vw - 20px)); }
     }
   </style>
 </head>
@@ -133,7 +146,8 @@
     <button id="btnFiltros" type="button" class="sec">☰ Filtros</button>
     <input type="file" id="arquivo" accept=".xlsx,.xls,.csv" hidden>
   </div>
-  <div id="filtros">
+  <div id="lateral">
+  <div class="cartao" id="filtros">
     <h4>Fonte dos dados</h4>
     <div id="fonte">—</div>
     <div class="linhaBtn">
@@ -145,6 +159,20 @@
     <label><input type="checkbox" id="chkABT" checked> Setores ABT</label>
     <label><input type="checkbox" id="chkAJA" checked> Setores AJA</label>
     <details id="semLoc" style="display:none"><summary id="semTit"></summary><ul id="semLista"></ul></details>
+  </div>
+  <div class="cartao" id="cartaoBairros">
+    <h4>🎨 Cor dos pinos por bairro</h4>
+    <label><input type="checkbox" id="chkCorBairro"> Colorir os pinos por bairro</label>
+    <div id="listaCores"></div>
+    <div class="nota">Com a cor por bairro ligada, o pino fica da cor do bairro e o círculo no centro mostra a cor do status.</div>
+    <div class="linhaBtn"><button id="btnCoresAuto" type="button" class="sec">Cores automáticas</button></div>
+  </div>
+  <div class="cartao" id="cartaoApm">
+    <h4>👤 APM por bairro</h4>
+    <div id="listaApm"></div>
+    <div class="nota">O APM escolhido aparece ao passar o mouse nos pinos do bairro.</div>
+    <div class="linhaBtn"><button id="btnLimparApm" type="button" class="sec">Limpar associações</button></div>
+  </div>
   </div>
   <div id="map"></div>
   <div id="aviso">Carregando mapa…</div>
@@ -262,9 +290,9 @@
       status: ['STATUSDAEMPRESA', 'STATUSEMPRESA'],
       endereco: ['ENDERECODAUC', 'ENDERECO'],
       razao: ['RAZAOSOCIAL'], fantasia: ['NOMEFANTASIA'], cnpj: ['CNPJ'],
-      bairro: ['BAIRRODAUC', 'BAIRROUC'], cep: ['CEPDAUC', 'CEPUC'],
+      bairro: ['BAIRRODAUC', 'BAIRROUC', 'BAIRRO'], cep: ['CEPDAUC', 'CEPUC'],
       municipio: ['MUNICIPIO', 'MUNICIPIODAUC'], uf: ['UF', 'UFDAUC'],
-      resp: ['RESPONSAVELPELAABORDAGEM', 'NOMERESPONSAVELABORDAGEM']
+      resp: ['RESPONSAVELPELAABORDAGEM', 'NOMERESPONSAVELABORDAGEM', 'RESPONSAVEL']
     };
 
     // Recebe linhas (como o painel guarda, ou direto de .xlsx/.csv) e devolve só as empresas com os status pedidos
@@ -276,8 +304,9 @@
       Object.keys(COLS).forEach(k => { c[k] = null; for (const a of COLS[k]) if (mapaCols[a]) { c[k] = mapaCols[a]; break; } });
       if (!c.status || !c.endereco) return null;
       const v = (l, k) => c[k] ? String(l[c[k]] == null ? '' : l[c[k]]).trim() : '';
-      const out = [];
+      const out = [], apms = new Set();
       for (const l of linhas) {
+        const ap = v(l, 'resp'); if (ap) apms.add(ap);
         const st = norm(v(l, 'status'));
         if (!STATUS[st]) continue;
         out.push({
@@ -286,16 +315,19 @@
           municipio: v(l, 'municipio') || 'Rio de Janeiro', uf: v(l, 'uf') || 'RJ', resp: v(l, 'resp')
         });
       }
+      ultimoApms = Array.from(apms);
       return out;
     }
+    let ultimoApms = [];
 
     function lerJSON(chave) { try { return JSON.parse(localStorage.getItem(chave)); } catch (e) { return null; } }
 
-    let empresas = [], fonteTxt = '';
+    let empresas = [], fonteTxt = '', todosApms = [];
     function carregarDados() {
       const propria = lerJSON(CHAVE_OUTRA);
       if (propria && Array.isArray(propria.empresas)) {
         empresas = propria.empresas;
+        todosApms = propria.apms || [];
         fonteTxt = 'Planilha importada neste mapa: <b>' + esc(propria.nome) + '</b>';
         $('btnPainel').style.display = '';
         return true;
@@ -304,12 +336,76 @@
       const doPainel = lerJSON(CHAVE_PAINEL);
       if (Array.isArray(doPainel) && doPainel.length) {
         const r = extrair(doPainel);
-        if (r) { empresas = r; fonteTxt = 'Planilha importada no <b>painel.html</b>'; return true; }
+        if (r) { empresas = r; todosApms = ultimoApms; fonteTxt = 'Planilha importada no <b>painel.html</b>'; return true; }
       }
-      empresas = [];
+      empresas = []; todosApms = [];
       fonteTxt = 'Nenhuma planilha encontrada. Importe uma planilha no painel ou use o botão "Importar planilha".';
       return false;
     }
+
+    // ===== PREFERÊNCIAS (guardadas neste navegador) =====
+    const CHAVE_CORES = 'mapaEmpresasCoresBairro_v1', CHAVE_APM = 'mapaEmpresasApmBairro_v1', CHAVE_CORRECOES = 'mapaEmpresasCorrecoes_v1';
+    let coresBairro = lerJSON(CHAVE_CORES) || { modo: false, cores: {} };
+    let apmBairro = lerJSON(CHAVE_APM) || {};
+    let correcoes = lerJSON(CHAVE_CORRECOES) || {};
+    const gravar = (chave, obj) => { try { localStorage.setItem(chave, JSON.stringify(obj)); } catch (e) { console.warn('Não foi possível gravar', chave); } };
+    const PALETA = ['#e6194b', '#3cb44b', '#4363d8', '#f58231', '#911eb4', '#00b8d9', '#f032e6', '#a8c800', '#008080', '#9a6324', '#800000', '#808000', '#000075', '#ff6f91'];
+
+    // ===== BAIRROS (agrupa ITANHANGÁ/ITANHANGA e nomes cortados, como "RECREIO DOS BANDEIR") =====
+    let bairros = [];                 // [{ k, nome, n }] em ordem alfabética
+    const nomeBairro = k => (bairros.find(b => b.k === k) || {}).nome || '(sem bairro)';
+    function montarBairros() {
+      const chaves = [...new Set(empresas.map(e => norm(e.bairro)).filter(Boolean))];
+      const canon = {};
+      chaves.forEach(k => {
+        const maior = chaves.filter(o => o.length > k.length && k.length >= 8 && o.startsWith(k)).sort((a, b) => b.length - a.length)[0];
+        canon[k] = maior || k;
+      });
+      const info = {};
+      empresas.forEach(e => {
+        const k = e.bairro ? canon[norm(e.bairro)] : '';
+        e.bairroKey = k;
+        const b = info[k] = info[k] || { k, n: 0, vars: {} };
+        b.n++;
+        if (norm(e.bairro) === k) b.vars[e.bairro] = (b.vars[e.bairro] || 0) + 1;
+      });
+      const temAcento = t => /[^\x00-\x7f]/.test(t);
+      bairros = Object.values(info).map(b => {
+        const v = Object.entries(b.vars).sort((a, c) => (temAcento(c[0]) - temAcento(a[0])) || c[1] - a[1])[0];
+        return { k: b.k, n: b.n, nome: b.k ? (v ? v[0] : b.k) : '(sem bairro)' };
+      }).sort((a, b) => (a.k ? 0 : 1) - (b.k ? 0 : 1) || a.nome.localeCompare(b.nome, 'pt-BR'));
+    }
+    function corBairro(k) {
+      if (!k) return '#9ca3af';
+      if (coresBairro.cores[k]) return coresBairro.cores[k];
+      const i = bairros.filter(b => b.k).findIndex(b => b.k === k);
+      return PALETA[(i < 0 ? 0 : i) % PALETA.length];
+    }
+
+    function renderBairros() {
+      $('chkCorBairro').checked = !!coresBairro.modo;
+      $('listaCores').innerHTML = bairros.map(b =>
+        '<label class="lin"><input type="color" data-k="' + esc(b.k) + '" value="' + corBairro(b.k) + '"><span title="' + esc(b.nome) + '">' + esc(b.nome) +
+        '</span><span class="n">' + b.n + '</span></label>').join('') || '<div class="nota">Sem bairros na planilha.</div>';
+      $('listaCores').querySelectorAll('input').forEach(i => i.addEventListener('change', () => {
+        coresBairro.cores[i.dataset.k] = i.value; gravar(CHAVE_CORES, coresBairro);
+        if (coresBairro.modo) desenharPins(false);
+      }));
+      const lista = [...new Set([...todosApms, ...empresas.map(e => e.resp), ...Object.values(apmBairro)].filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+      $('listaApm').innerHTML = bairros.filter(b => b.k).map(b =>
+        '<div class="lin"><span title="' + esc(b.nome) + '">' + esc(b.nome) + '</span><select data-k="' + esc(b.k) + '"><option value="">— sem APM —</option>' +
+        lista.map(a => '<option' + (apmBairro[b.k] === a ? ' selected' : '') + '>' + esc(a) + '</option>').join('') + '</select></div>').join('') || '<div class="nota">Sem bairros na planilha.</div>';
+      $('listaApm').querySelectorAll('select').forEach(sel => sel.addEventListener('change', () => {
+        sel.value ? apmBairro[sel.dataset.k] = sel.value : delete apmBairro[sel.dataset.k];
+        gravar(CHAVE_APM, apmBairro);
+      }));
+    }
+    $('chkCorBairro').addEventListener('change', e => { coresBairro.modo = e.target.checked; gravar(CHAVE_CORES, coresBairro); desenharPins(false); });
+    $('btnCoresAuto').addEventListener('click', () => { coresBairro.cores = {}; gravar(CHAVE_CORES, coresBairro); renderBairros(); desenharPins(false); });
+    $('btnLimparApm').addEventListener('click', () => {
+      if (!Object.keys(apmBairro).length || !confirm('Remover todas as associações de APM por bairro?')) return;
+      apmBairro = {}; gravar(CHAVE_APM, apmBairro); renderBairros();
+    });
 
     // ===== IMPORTAR OUTRA PLANILHA (substitui os dados deste mapa) =====
     function importarArquivo(file) {
@@ -322,9 +418,9 @@
           const linhas = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' });
           const emp = extrair(linhas);
           if (!emp) { alert('Não encontrei as colunas de status ("Status da Empresa" / "StatusEmpresa") e de endereço ("Endereço da UC" / "Endereco").'); return; }
-          try { localStorage.setItem(CHAVE_OUTRA, JSON.stringify({ nome: file.name, empresas: emp })); }
+          try { localStorage.setItem(CHAVE_OUTRA, JSON.stringify({ nome: file.name, empresas: emp, apms: ultimoApms })); }
           catch (err) { alert('Não foi possível guardar a planilha no navegador; ela será usada só até recarregar a página.'); }
-          empresas = emp;
+          empresas = emp; todosApms = ultimoApms;
           fonteTxt = 'Planilha importada neste mapa: <b>' + esc(file.name) + '</b>';
           $('btnPainel').style.display = '';
           iniciarDados();
@@ -335,8 +431,8 @@
     $('btnImportar').addEventListener('click', () => $('arquivo').click());
     $('arquivo').addEventListener('change', e => { if (e.target.files[0]) importarArquivo(e.target.files[0]); e.target.value = ''; });
     $('btnPainel').addEventListener('click', () => { localStorage.removeItem(CHAVE_OUTRA); iniciarDados(true); });
-    $('btnFiltros').addEventListener('click', () => $('filtros').classList.toggle('fechado'));
-    ['busca', 'acoes', 'filtros'].forEach(id => { L.DomEvent.disableClickPropagation($(id)); L.DomEvent.disableScrollPropagation($(id)); });
+    $('btnFiltros').addEventListener('click', () => $('lateral').classList.toggle('fechado'));
+    ['busca', 'acoes', 'lateral'].forEach(id => { L.DomEvent.disableClickPropagation($(id)); L.DomEvent.disableScrollPropagation($(id)); });
 
     // se a planilha do painel mudar em outra aba, atualiza aqui (a menos que haja planilha própria)
     window.addEventListener('storage', e => { if (e.key === CHAVE_PAINEL && !localStorage.getItem(CHAVE_OUTRA)) iniciarDados(true); });
@@ -435,32 +531,109 @@
     const ativos = new Set(Object.keys(STATUS));
     let grupos = [];
 
-    function iconePin(cor, n) {
+    function iconePin(cor, n, centro) {
       const svg = '<svg width="30" height="40" viewBox="0 0 30 40" xmlns="http://www.w3.org/2000/svg">' +
         '<path d="M15 1C7.3 1 1 7.2 1 14.8 1 25 15 39 15 39s14-14 14-24.2C29 7.2 22.7 1 15 1z" fill="' + cor + '" stroke="#fff" stroke-width="2"/>' +
-        (n > 1 ? '<text x="15" y="19" text-anchor="middle" font-size="12" font-weight="bold" font-family="Arial" fill="#fff">' + n + '</text>'
-               : '<circle cx="15" cy="14.5" r="4.5" fill="#fff"/>') + '</svg>';
+        (n > 1 ? '<text x="15" y="19" text-anchor="middle" font-size="12" font-weight="bold" font-family="Arial" fill="#fff" stroke="rgba(0,0,0,.45)" stroke-width=".6">' + n + '</text>'
+               : '<circle cx="15" cy="14.5" r="' + (centro ? 5.5 : 4.5) + '" fill="' + (centro || '#fff') + '"' + (centro ? ' stroke="#fff" stroke-width="1.8"' : '') + '/>') + '</svg>';
       return L.divIcon({ html: svg, className: 'pin-empresa', iconSize: [30, 40], iconAnchor: [15, 39], tooltipAnchor: [0, -34], popupAnchor: [0, -34] });
     }
     const selo = st => '<span class="bd" style="background:' + STATUS[st] + '">' + esc(st) + '</span>';
     const nomeEmp = e => esc(e.razao) + (e.fantasia && e.fantasia !== 'S/D' ? ' (' + esc(e.fantasia) + ')' : '');
+    const linhaBairro = (e, cls) => {
+      if (!e.bairroKey) return '';
+      const apm = apmBairro[e.bairroKey];
+      return '<br>Bairro: ' + esc(nomeBairro(e.bairroKey)) + (apm ? ' · APM: ' + (cls ? '<span class="' + cls + '">' + esc(apm) + '</span>' : '<b>' + esc(apm) + '</b>') : '');
+    };
+    const notaLocal = (g, ttip) => g.itens.every(e => e.corrigido) ? (ttip ? '<div class="ok">✔ Local corrigido</div>' : '<div style="color:#15803d;font-size:12px">✔ Local corrigido</div>')
+      : g.itens.some(e => e.aprox) ? (ttip ? '<div class="aprox">⚠ Localização aproximada</div>' : '<div style="color:#b45309;font-size:12px">⚠ Localização aproximada</div>') : '';
 
     function tooltipGrupo(g) {
       const it = g.itens.slice(0, 8).map(e =>
-        '<div class="emp" style="border-color:' + STATUS[e.st] + '">' + selo(e.st) + '<br>' + nomeEmp(e) + '</div>').join('');
+        '<div class="emp" style="border-color:' + STATUS[e.st] + '">' + selo(e.st) + '<br>' + nomeEmp(e) + linhaBairro(e, 'apm') + '</div>').join('');
       return '<div class="end">' + esc(g.itens[0].end) + '</div>' + it +
-        (g.itens.length > 8 ? '<div class="emp">+ ' + (g.itens.length - 8) + ' empresa(s)… clique para ver todas</div>' : '') +
-        (g.itens.some(e => e.aprox) ? '<div class="aprox">⚠ Localização aproximada</div>' : '');
+        (g.itens.length > 8 ? '<div class="emp">+ ' + (g.itens.length - 8) + ' empresa(s)… clique para ver todas</div>' : '') + notaLocal(g, true);
     }
+
+    // ----- popup (com correção do endereço) -----
     function popupGrupo(g) {
-      const it = g.itens.map(e =>
+      const el = document.createElement('div');
+      el.className = 'popup-emp';
+      desenharPopup(el, g);
+      return el;
+    }
+    function desenharPopup(el, g) {
+      const it = g.itens.map((e, i) =>
         '<div class="it" style="border-color:' + STATUS[e.st] + '">' + selo(e.st) + '<br><b>' + nomeEmp(e) + '</b>' +
-        (e.cnpj ? '<br>CNPJ: ' + esc(e.cnpj) : '') +
-        (e.bairro ? '<br>Bairro: ' + esc(e.bairro) : '') +
-        (e.resp ? '<br>Responsável: ' + esc(e.resp) : '') + '</div>').join('');
-      return '<div class="popup-emp"><b>' + esc(g.itens[0].end) + '</b>' + it +
-        (g.itens.some(e => e.aprox) ? '<div style="color:#b45309;font-size:12px">⚠ Localização aproximada</div>' : '') +
-        '<div style="margin-top:6px"><a target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=' + g.pos.lat + ',' + g.pos.lng + '">Abrir no Google Maps</a></div></div>';
+        (e.cnpj ? '<br>CNPJ: ' + esc(e.cnpj) : '') + linhaBairro(e) +
+        (e.resp ? '<br>Responsável: ' + esc(e.resp) : '') +
+        '<br><a href="#" class="corrigir" data-i="' + i + '">✏️ Corrigir local</a></div>').join('');
+      el.innerHTML = '<b>' + esc(g.itens[0].end) + '</b>' + it + notaLocal(g, false) +
+        '<div style="margin-top:6px"><a target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=' + g.pos.lat + ',' + g.pos.lng + '">Abrir no Google Maps</a></div>';
+      el.querySelectorAll('.corrigir').forEach(a => a.addEventListener('click', ev => { ev.preventDefault(); formCorrecao(el, g, g.itens[+a.dataset.i]); }));
+    }
+
+    // ----- correção do endereço / local -----
+    const chaveEmp = e => (String(e.cnpj).replace(/\D/g, '') || norm(e.razao)) + '|' + norm(e.endOrig != null ? e.endOrig : e.end);
+    let marcando = null;   // empresa aguardando o clique no mapa
+
+    function aplicarCorrecao(e, pos, endTxt) {
+      correcoes[chaveEmp(e)] = { lat: pos.lat, lng: pos.lng, end: endTxt };
+      gravar(CHAVE_CORRECOES, correcoes);
+      e.end = endTxt; e.pos = { lat: pos.lat, lng: pos.lng }; e.aprox = false; e.corrigido = true;
+      map.closePopup();
+      desenharPins(false);
+      map.setView([pos.lat, pos.lng], Math.max(map.getZoom(), 17));
+      const g = grupos.find(g => g.itens.includes(e));
+      if (g) g.marker.openTooltip();
+    }
+    function cancelarMarcacao() {
+      if (!marcando) return;
+      marcando = null; map.getContainer().style.cursor = '';
+      if (!empresas.some(e => !e.pos && e.end && !e.tentou)) $('aviso').style.display = 'none';
+    }
+    map.on('click', ev => {
+      if (!marcando) return;
+      const e = marcando, txt = e.endTxtNovo || e.end;
+      delete e.endTxtNovo;
+      cancelarMarcacao();
+      aplicarCorrecao(e, ev.latlng, txt);
+    });
+    document.addEventListener('keydown', ev => { if (ev.key === 'Escape') cancelarMarcacao(); });
+
+    function formCorrecao(el, g, e) {
+      el.innerHTML = '<b>Corrigir o local de</b><br>' + nomeEmp(e) +
+        '<label style="display:block;margin-top:8px;font-size:12px">Endereço correto (rua, número):' +
+        '<input class="cx-end" type="text" value="' + esc(e.end) + '"></label>' +
+        '<div class="cx-linha"><button type="button" class="cx-buscar">🔎 Buscar este endereço</button>' +
+        '<button type="button" class="cx-clicar">📍 Marcar no mapa</button></div>' +
+        '<div class="cx-linha"><button type="button" class="cx-voltar sec">Voltar</button>' +
+        (e.corrigido ? '<button type="button" class="cx-restaurar sec">Restaurar original</button>' : '') + '</div>' +
+        '<div class="cx-msg">Se a busca não achar o ponto certo, use "Marcar no mapa" e clique no local exato.</div>';
+      const campo = el.querySelector('.cx-end'), msg = el.querySelector('.cx-msg');
+      el.querySelector('.cx-voltar').addEventListener('click', () => desenharPopup(el, g));
+      el.querySelector('.cx-buscar').addEventListener('click', async () => {
+        const txt = campo.value.trim();
+        if (!txt) { msg.textContent = 'Digite o endereço.'; return; }
+        msg.textContent = 'Buscando…';
+        try {
+          for (const [q] of candidatos({ end: txt, bairro: e.bairro, municipio: e.municipio, uf: e.uf })) {
+            const r = await nominatim(q);
+            if (r) { salvarCache(); aplicarCorrecao(e, r, txt); return; }
+          }
+          msg.textContent = 'Endereço não encontrado. Ajuste o texto ou use "Marcar no mapa".';
+        } catch (err) { msg.textContent = 'Sem resposta do serviço de busca. Tente "Marcar no mapa".'; }
+      });
+      el.querySelector('.cx-clicar').addEventListener('click', () => {
+        e.endTxtNovo = campo.value.trim() || e.end;
+        marcando = e; map.closePopup(); map.getContainer().style.cursor = 'crosshair';
+        $('aviso').style.display = ''; $('aviso').textContent = 'Clique no mapa no local correto de ' + e.razao + '. (Esc cancela)';
+      });
+      const rest = el.querySelector('.cx-restaurar');
+      if (rest) rest.addEventListener('click', () => {
+        delete correcoes[chaveEmp(e)]; gravar(CHAVE_CORRECOES, correcoes);
+        map.closePopup(); iniciarDados(false);
+      });
     }
 
     function visiveis() {
@@ -477,8 +650,13 @@
       grupos = Object.values(por);
       grupos.forEach(g => {
         const sts = [...new Set(g.itens.map(e => e.st))];
-        const cor = sts.length === 1 ? STATUS[sts[0]] : COR_MISTO;
-        const mk = L.marker([g.pos.lat, g.pos.lng], { icon: iconePin(cor, g.itens.length), riseOnHover: true });
+        let cor = sts.length === 1 ? STATUS[sts[0]] : COR_MISTO, centro = null;
+        if (coresBairro.modo) {
+          const bs = [...new Set(g.itens.map(e => e.bairroKey))];
+          cor = bs.length === 1 ? corBairro(bs[0]) : COR_MISTO;
+          centro = sts.length === 1 ? STATUS[sts[0]] : '#ffffff';
+        }
+        const mk = L.marker([g.pos.lat, g.pos.lng], { icon: iconePin(cor, g.itens.length, centro), riseOnHover: true });
         mk.bindTooltip(() => tooltipGrupo(g), { direction: 'top', className: 'setor-tooltip', opacity: 1 });
         mk.bindPopup(() => popupGrupo(g), { maxWidth: 340 });
         g.marker = mk;
@@ -526,10 +704,17 @@
     // ===== INÍCIO =====
     function iniciarDados(recarregar) {
       if (recarregar) carregarDados();
-      empresas.forEach(e => { delete e.pos; delete e.tentou; });
+      empresas.forEach(e => {
+        delete e.pos; delete e.tentou; delete e.corrigido;
+        if (e.endOrig !== undefined) e.end = e.endOrig; else e.endOrig = e.end;
+        const c = correcoes[chaveEmp(e)];            // correções feitas pelo usuário valem mais que a localização automática
+        if (c) { if (c.end) e.end = c.end; e.pos = { lat: c.lat, lng: c.lng }; e.aprox = false; e.corrigido = true; }
+      });
+      montarBairros();
+      renderBairros();
       // aproveita o que já está no cache antes de consultar a internet
       empresas.forEach(e => {
-        if (!e.end) return;
+        if (!e.end || e.pos) return;
         for (const [q, fa] of candidatos(e)) { const r = cache[q]; if (r) { e.pos = { lat: r.lat, lng: r.lng }; e.aprox = r.aprox || fa; break; } }
       });
       desenharPins(true);
