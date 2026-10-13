@@ -518,18 +518,32 @@
         e.tentou = true;
         feitas++;
         if (e.pos) nova++;
-        if (feitas % 5 === 0) { $('aviso').style.display = ''; $('aviso').textContent = 'Localizando endereços… ' + feitas + ' / ' + pend.length; desenharPins(false); salvarCache(); }
+        if (feitas % 5 === 0) { $('aviso').style.display = ''; $('aviso').textContent = 'Localizando endereços… ' + feitas + ' / ' + pend.length; redesenharSeLivre(false); salvarCache(); }
       }
       if (id !== execId) return;
       salvarCache();
       $('aviso').style.display = 'none';
-      desenharPins(true);
+      redesenharSeLivre(true);
     }
 
     // ===== PINS =====
     const camadaPins = L.featureGroup().addTo(map);
     const ativos = new Set(Object.keys(STATUS));
     let grupos = [];
+
+    // Redesenhar os pinos fecha a janela aberta; por isso, se houver uma janela aberta (ex.: corrigindo um endereço),
+    // o redesenho automático da localização em segundo plano espera ela fechar.
+    let janelaAberta = false, redesenhoPendente = null;
+    map.on('popupopen', () => { janelaAberta = true; });
+    map.on('popupclose', () => {
+      janelaAberta = false;
+      if (redesenhoPendente !== null && !marcando) { const aj = redesenhoPendente; redesenhoPendente = null; desenharPins(aj); }
+    });
+    function redesenharSeLivre(ajustar) {
+      if (janelaAberta) { redesenhoPendente = !!(ajustar || redesenhoPendente); return; }
+      redesenhoPendente = null;
+      desenharPins(ajustar);
+    }
 
     function iconePin(cor, n, centro) {
       const svg = '<svg width="30" height="40" viewBox="0 0 30 40" xmlns="http://www.w3.org/2000/svg">' +
