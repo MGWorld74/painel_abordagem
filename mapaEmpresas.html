@@ -304,9 +304,10 @@
       Object.keys(COLS).forEach(k => { c[k] = null; for (const a of COLS[k]) if (mapaCols[a]) { c[k] = mapaCols[a]; break; } });
       if (!c.status || !c.endereco) return null;
       const v = (l, k) => c[k] ? String(l[c[k]] == null ? '' : l[c[k]]).trim() : '';
-      const out = [], apms = new Set();
+      const out = [], apms = new Set(), bairrosSet = new Set();
       for (const l of linhas) {
         const ap = v(l, 'resp'); if (ap) apms.add(ap);
+        const bz = v(l, 'bairro'); if (bz) bairrosSet.add(bz);
         const st = norm(v(l, 'status'));
         if (!STATUS[st]) continue;
         out.push({
@@ -315,19 +316,19 @@
           municipio: v(l, 'municipio') || 'Rio de Janeiro', uf: v(l, 'uf') || 'RJ', resp: v(l, 'resp')
         });
       }
-      ultimoApms = Array.from(apms);
+      ultimoApms = Array.from(apms); ultimoBairros = Array.from(bairrosSet);
       return out;
     }
-    let ultimoApms = [];
+    let ultimoApms = [], ultimoBairros = [];
 
     function lerJSON(chave) { try { return JSON.parse(localStorage.getItem(chave)); } catch (e) { return null; } }
 
-    let empresas = [], fonteTxt = '', todosApms = [];
+    let empresas = [], fonteTxt = '', todosApms = [], todosBairros = [];
     function carregarDados() {
       const propria = lerJSON(CHAVE_OUTRA);
       if (propria && Array.isArray(propria.empresas)) {
         empresas = propria.empresas;
-        todosApms = propria.apms || [];
+        todosApms = propria.apms || []; todosBairros = propria.bairros || [];
         fonteTxt = 'Planilha importada neste mapa: <b>' + esc(propria.nome) + '</b>';
         $('btnPainel').style.display = '';
         return true;
@@ -336,9 +337,9 @@
       const doPainel = lerJSON(CHAVE_PAINEL);
       if (Array.isArray(doPainel) && doPainel.length) {
         const r = extrair(doPainel);
-        if (r) { empresas = r; todosApms = ultimoApms; fonteTxt = 'Planilha importada no <b>painel.html</b>'; return true; }
+        if (r) { empresas = r; todosApms = ultimoApms; todosBairros = ultimoBairros; fonteTxt = 'Planilha importada no <b>painel.html</b>'; return true; }
       }
-      empresas = []; todosApms = [];
+      empresas = []; todosApms = []; todosBairros = [];
       fonteTxt = 'Nenhuma planilha encontrada. Importe uma planilha no painel ou use o botão "Importar planilha".';
       return false;
     }
@@ -418,9 +419,9 @@
           const linhas = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' });
           const emp = extrair(linhas);
           if (!emp) { alert('Não encontrei as colunas de status ("Status da Empresa" / "StatusEmpresa") e de endereço ("Endereço da UC" / "Endereco").'); return; }
-          try { localStorage.setItem(CHAVE_OUTRA, JSON.stringify({ nome: file.name, empresas: emp, apms: ultimoApms })); }
+          try { localStorage.setItem(CHAVE_OUTRA, JSON.stringify({ nome: file.name, empresas: emp, apms: ultimoApms, bairros: ultimoBairros })); }
           catch (err) { alert('Não foi possível guardar a planilha no navegador; ela será usada só até recarregar a página.'); }
-          empresas = emp; todosApms = ultimoApms;
+          empresas = emp; todosApms = ultimoApms; todosBairros = ultimoBairros;
           fonteTxt = 'Planilha importada neste mapa: <b>' + esc(file.name) + '</b>';
           $('btnPainel').style.display = '';
           iniciarDados();
@@ -559,12 +560,13 @@
       const apm = apmBairro[e.bairroKey];
       return '<br>Bairro: ' + esc(nomeBairro(e.bairroKey)) + (apm ? ' · APM: ' + (cls ? '<span class="' + cls + '">' + esc(apm) + '</span>' : '<b>' + esc(apm) + '</b>') : '');
     };
+    const linhaObs = (e, ttip) => e.obs ? '<br>📝 ' + (ttip ? esc(e.obs.length > 140 ? e.obs.slice(0, 140) + '…' : e.obs) : '<i>' + esc(e.obs) + '</i>') : '';
     const notaLocal = (g, ttip) => g.itens.every(e => e.corrigido) ? (ttip ? '<div class="ok">✔ Local corrigido</div>' : '<div style="color:#15803d;font-size:12px">✔ Local corrigido</div>')
       : g.itens.some(e => e.aprox) ? (ttip ? '<div class="aprox">⚠ Localização aproximada</div>' : '<div style="color:#b45309;font-size:12px">⚠ Localização aproximada</div>') : '';
 
     function tooltipGrupo(g) {
       const it = g.itens.slice(0, 8).map(e =>
-        '<div class="emp" style="border-color:' + STATUS[e.st] + '">' + selo(e.st) + '<br>' + nomeEmp(e) + linhaBairro(e, 'apm') + '</div>').join('');
+        '<div class="emp" style="border-color:' + STATUS[e.st] + '">' + selo(e.st) + '<br>' + nomeEmp(e) + linhaBairro(e, 'apm') + linhaObs(e, true) + '</div>').join('');
       return '<div class="end">' + esc(g.itens[0].end) + '</div>' + it +
         (g.itens.length > 8 ? '<div class="emp">+ ' + (g.itens.length - 8) + ' empresa(s)… clique para ver todas</div>' : '') + notaLocal(g, true);
     }
@@ -582,7 +584,7 @@
     function desenharPopup(el, g) {
       const it = g.itens.map((e, i) =>
         '<div class="it" style="border-color:' + STATUS[e.st] + '">' + selo(e.st) + '<br><b>' + nomeEmp(e) + '</b>' +
-        (e.cnpj ? '<br>CNPJ: ' + esc(e.cnpj) : '') + linhaBairro(e) +
+        (e.cnpj ? '<br>CNPJ: ' + esc(e.cnpj) : '') + linhaBairro(e) + linhaObs(e, false) +
         (e.resp ? '<br>Responsável: ' + esc(e.resp) : '') +
         '<br><a href="#" class="corrigir" data-i="' + i + '">✏️ Corrigir local</a></div>').join('');
       el.innerHTML = '<b>' + esc(g.itens[0].end) + '</b>' + it + notaLocal(g, false) +
@@ -603,10 +605,22 @@
       const g = grupos.find(g => g.itens.includes(e));
       if (g) g.marker.openTooltip();
     }
-    function aplicarCorrecao(e, pos, endTxt, bairroTxt) {
+    const temCorrecaoLocal = e => { const c = correcoes[chaveEmp(e)]; return !!(c && (c.lat != null || c.end || c.bairro)); };
+    function guardarObs(e, c, txt) { if (txt) c.obs = txt; else delete c.obs; e.obs = txt || ''; }
+    function salvarObs(e, txt) {
+      const c = correcoes[chaveEmp(e)] || {};
+      guardarObs(e, c, txt);
+      if (Object.keys(c).length) correcoes[chaveEmp(e)] = c; else delete correcoes[chaveEmp(e)];
+      gravar(CHAVE_CORRECOES, correcoes);
+      map.closePopup(); desenharPins(false);
+      const g = grupos.find(g => g.itens.includes(e));
+      if (g) g.marker.openTooltip();
+    }
+    function aplicarCorrecao(e, pos, endTxt, bairroTxt, obsTxt) {
       const c = correcoes[chaveEmp(e)] || {};
       Object.assign(c, { lat: pos.lat, lng: pos.lng, end: endTxt });
       if (bairroTxt) c.bairro = bairroTxt;
+      if (obsTxt !== undefined) guardarObs(e, c, obsTxt);
       correcoes[chaveEmp(e)] = c;
       gravar(CHAVE_CORRECOES, correcoes);
       e.end = endTxt; e.pos = { lat: pos.lat, lng: pos.lng }; e.aprox = false; e.corrigido = true;
@@ -625,53 +639,82 @@
     }
     map.on('click', ev => {
       if (!marcando) return;
-      const e = marcando, txt = e.endTxtNovo || e.end, bai = e.bairroTxtNovo;
-      delete e.endTxtNovo; delete e.bairroTxtNovo;
+      const e = marcando, txt = e.endTxtNovo || e.end, bai = e.bairroTxtNovo, obs = e.obsTxtNovo;
+      delete e.endTxtNovo; delete e.bairroTxtNovo; delete e.obsTxtNovo;
       cancelarMarcacao();
-      aplicarCorrecao(e, ev.latlng, txt, bai);
+      aplicarCorrecao(e, ev.latlng, txt, bai, obs);
     });
     document.addEventListener('keydown', ev => { if (ev.key === 'Escape') cancelarMarcacao(); });
+
+    // Bairros da planilha (todas as linhas), sem repetir variações de acento nem nomes cortados
+    function listaBairrosPlanilha() {
+      const nomes = [...todosBairros, ...bairros.filter(b => b.k).map(b => b.nome)].filter(Boolean);
+      const acento = t => /[^\x00-\x7f]/.test(t);
+      const porChave = {};
+      nomes.forEach(n => { const k = norm(n), at = porChave[k]; if (!at || (acento(n) && !acento(at))) porChave[k] = n; });
+      const ks = Object.keys(porChave);
+      return ks.filter(k => !ks.some(o => o.length > k.length && k.length >= 8 && o.startsWith(k)))
+               .map(k => porChave[k]).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    }
+
+    function opcoesBairro(e) {
+      const atual = e.bairroKey ? nomeBairro(e.bairroKey) : (e.bairro || '');
+      const lista = listaBairrosPlanilha();
+      if (atual && !lista.some(n => norm(n) === norm(atual))) lista.push(atual);
+      return (atual ? '' : '<option value="">— selecione —</option>') +
+        lista.map(n => '<option' + (norm(n) === norm(atual) ? ' selected' : '') + '>' + esc(n) + '</option>').join('') +
+        '<option value="__outro__">✏️ Outro (digitar)…</option>';
+    }
 
     function formCorrecao(el, g, e) {
       el.innerHTML = '<b>Corrigir o local de</b><br>' + nomeEmp(e) +
         '<label style="display:block;margin-top:8px;font-size:12px">Endereço correto (rua, número):' +
         '<input class="cx-end" type="text" value="' + esc(e.end) + '"></label>' +
         '<label style="display:block;margin-top:6px;font-size:12px">Bairro:' +
-        '<input class="cx-end cx-bairro" type="text" list="dlBairros" value="' + esc(e.bairroKey ? nomeBairro(e.bairroKey) : e.bairro) + '"></label>' +
-        '<datalist id="dlBairros">' + bairros.filter(b => b.k).map(b => '<option value="' + esc(b.nome) + '">').join('') + '</datalist>' +
+        '<select class="cx-end cx-bairro">' + opcoesBairro(e) + '</select>' +
+        '<input class="cx-end cx-bairro-novo" type="text" placeholder="Digite o nome do bairro" style="display:none"></label>' +
+        '<label style="display:block;margin-top:6px;font-size:12px">Observação (OBS):' +
+        '<textarea class="cx-end cx-obs" rows="2" placeholder="Ex.: empresa mudou de endereço, portaria pede agendamento…">' + esc(e.obs || '') + '</textarea></label>' +
         '<div class="cx-linha"><button type="button" class="cx-buscar">🔎 Buscar este endereço</button>' +
         '<button type="button" class="cx-clicar">📍 Marcar no mapa</button></div>' +
         '<div class="cx-linha"><button type="button" class="cx-salvarb">💾 Salvar só o bairro</button>' +
-        '<button type="button" class="cx-voltar sec">Voltar</button>' +
-        (correcoes[chaveEmp(e)] ? '<button type="button" class="cx-restaurar sec">Restaurar original</button>' : '') + '</div>' +
-        '<div class="cx-msg">Se a busca não achar o ponto certo, use "Marcar no mapa" e clique no local exato. O bairro também é salvo junto com a busca ou a marcação.</div>';
-      const campo = el.querySelector('.cx-end'), campoB = el.querySelector('.cx-bairro'), msg = el.querySelector('.cx-msg');
+        '<button type="button" class="cx-salvaro">📝 Incluir OBS</button></div>' +
+        '<div class="cx-linha"><button type="button" class="cx-voltar sec">Voltar</button>' +
+        (temCorrecaoLocal(e) ? '<button type="button" class="cx-restaurar sec">Restaurar original</button>' : '') + '</div>' +
+        '<div class="cx-msg">Se a busca não achar o ponto certo, use "Marcar no mapa" e clique no local exato. O bairro e a OBS também são salvos junto com a busca ou a marcação.</div>';
+      const campo = el.querySelector('.cx-end'), campoB = el.querySelector('.cx-bairro'), campoBN = el.querySelector('.cx-bairro-novo'), campoO = el.querySelector('.cx-obs'), msg = el.querySelector('.cx-msg');
+      const valorBairro = () => campoB.value === '__outro__' ? campoBN.value.trim() : campoB.value.trim();
+      campoB.addEventListener('change', () => { campoBN.style.display = campoB.value === '__outro__' ? '' : 'none'; if (campoB.value === '__outro__') campoBN.focus(); });
       el.querySelector('.cx-voltar').addEventListener('click', () => desenharPopup(el, g));
       el.querySelector('.cx-buscar').addEventListener('click', async () => {
         const txt = campo.value.trim();
         if (!txt) { msg.textContent = 'Digite o endereço.'; return; }
         msg.textContent = 'Buscando…';
         try {
-          for (const [q] of candidatos({ end: txt, bairro: campoB.value.trim() || e.bairro, municipio: e.municipio, uf: e.uf })) {
+          for (const [q] of candidatos({ end: txt, bairro: valorBairro() || e.bairro, municipio: e.municipio, uf: e.uf })) {
             const r = await nominatim(q);
-            if (r) { salvarCache(); aplicarCorrecao(e, r, txt, campoB.value.trim()); return; }
+            if (r) { salvarCache(); aplicarCorrecao(e, r, txt, valorBairro(), campoO.value.trim()); return; }
           }
           msg.textContent = 'Endereço não encontrado. Ajuste o texto ou use "Marcar no mapa".';
         } catch (err) { msg.textContent = 'Sem resposta do serviço de busca. Tente "Marcar no mapa".'; }
       });
       el.querySelector('.cx-clicar').addEventListener('click', () => {
-        e.endTxtNovo = campo.value.trim() || e.end; e.bairroTxtNovo = campoB.value.trim();
+        e.endTxtNovo = campo.value.trim() || e.end; e.bairroTxtNovo = valorBairro(); e.obsTxtNovo = campoO.value.trim();
         marcando = e; map.closePopup(); map.getContainer().style.cursor = 'crosshair';
         $('aviso').style.display = ''; $('aviso').textContent = 'Clique no mapa no local correto de ' + e.razao + '. (Esc cancela)';
       });
       el.querySelector('.cx-salvarb').addEventListener('click', () => {
-        const b = campoB.value.trim();
+        const b = valorBairro();
         if (!b) { msg.textContent = 'Digite o bairro.'; return; }
         salvarBairro(e, b);
       });
+      el.querySelector('.cx-salvaro').addEventListener('click', () => salvarObs(e, campoO.value.trim()));
       const rest = el.querySelector('.cx-restaurar');
       if (rest) rest.addEventListener('click', () => {
-        delete correcoes[chaveEmp(e)]; gravar(CHAVE_CORRECOES, correcoes);
+        const c = correcoes[chaveEmp(e)] || {};
+        delete c.lat; delete c.lng; delete c.end; delete c.bairro;          // a OBS é mantida
+        if (Object.keys(c).length) correcoes[chaveEmp(e)] = c; else delete correcoes[chaveEmp(e)];
+        gravar(CHAVE_CORRECOES, correcoes);
         map.closePopup(); iniciarDados(false);
       });
     }
@@ -745,13 +788,14 @@
     function iniciarDados(recarregar) {
       if (recarregar) carregarDados();
       empresas.forEach(e => {
-        delete e.pos; delete e.tentou; delete e.corrigido;
+        delete e.pos; delete e.tentou; delete e.corrigido; delete e.obs;
         if (e.endOrig !== undefined) e.end = e.endOrig; else e.endOrig = e.end;
         if (e.bairroOrig !== undefined) e.bairro = e.bairroOrig; else e.bairroOrig = e.bairro;
         const c = correcoes[chaveEmp(e)];            // correções feitas pelo usuário valem mais que a localização automática
         if (c) {
           if (c.end) e.end = c.end;
           if (c.bairro) e.bairro = c.bairro;
+          if (c.obs) e.obs = c.obs;
           if (c.lat != null) { e.pos = { lat: c.lat, lng: c.lng }; e.aprox = false; e.corrigido = true; }
         }
       });
