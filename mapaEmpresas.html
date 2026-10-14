@@ -102,6 +102,8 @@
     #lateral label.zero { opacity: .45; }
     #lateral details.cartao > summary { cursor: pointer; font-size: 12px; font-weight: bold; text-transform: uppercase; color: #555; }
     #lateral details.cartao[open] > summary { margin-bottom: 8px; }
+    #lateral select#selApm { width: 100%; margin-bottom: 4px; }
+    #listaRota ol { margin: 0 0 0 18px; } #listaRota li { margin: 3px 0; font-size: 12px; } #listaRota a { color: #c00; text-decoration: none; font-weight: bold; }
     #fonte { font-size: 12px; color: #444; line-height: 1.4; margin-bottom: 6px; }
     #lateral .linhaBtn { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
     #semLoc { font-size: 12px; margin-top: 8px; }
@@ -145,6 +147,7 @@
   </div>
   <div id="acoes">
     <button id="btnImportar" type="button">📂 Importar planilha</button>
+    <button id="btnExportar" type="button" class="sec">⬇ Exportar</button>
     <button id="btnFiltros" type="button" class="sec">☰ Filtros</button>
     <input type="file" id="arquivo" accept=".xlsx,.xls,.csv" hidden>
   </div>
@@ -166,9 +169,17 @@
     </div>
     <div id="legenda"></div>
   </details>
+  <details class="cartao" id="cartaoFiltro">
+    <summary>🔎 Filtro por bairro e APM</summary>
+    <select id="selApm"></select>
+    <label><input type="checkbox" id="chkOcultarTrat"> Ocultar empresas já visitadas</label>
+    <div class="linhaBtn"><button id="btnBairrosTodos" type="button" class="sec">✔ Todos os bairros</button><button id="btnBairrosNenhum" type="button" class="sec">✖ Nenhum</button></div>
+    <div id="listaFiltroBairros"></div>
+  </details>
   <details class="cartao" id="cartaoBairros">
     <summary>🎨 Cores por bairros</summary>
     <label><input type="checkbox" id="chkCorBairro"> Colorir os pinos por bairro</label>
+    <label><input type="checkbox" id="chkCorApm"> Colorir os pinos por APM</label>
     <div id="listaCores"></div>
     <div class="nota">Com a cor por bairro ligada, o pino fica da cor do bairro e o círculo no centro mostra a cor do status.</div>
     <div class="linhaBtn"><button id="btnCoresAuto" type="button" class="sec">Cores automáticas</button></div>
@@ -178,6 +189,11 @@
     <div id="listaApm"></div>
     <div class="nota">O APM escolhido aparece ao passar o mouse nos pinos do bairro.</div>
     <div class="linhaBtn"><button id="btnLimparApm" type="button" class="sec">Limpar associações</button></div>
+  </details>
+  <details class="cartao" id="cartaoRota">
+    <summary>🚗 Rota de visita</summary>
+    <div id="listaRota"></div>
+    <div class="linhaBtn"><button id="btnRotaAbrir" type="button">Abrir no Google Maps</button><button id="btnRotaOrdenar" type="button" class="sec">Ordenar pelo mais próximo</button><button id="btnRotaLimpar" type="button" class="sec">Limpar</button></div>
   </details>
   </div>
   <div id="map"></div>
@@ -291,8 +307,131 @@
     let coresBairro = lerJSON(CHAVE_CORES) || { modo: false, cores: {} };
     let apmBairro = lerJSON(CHAVE_APM) || {};
     let correcoes = lerJSON(CHAVE_CORRECOES) || {};
-    const gravar = (chave, obj) => { try { localStorage.setItem(chave, JSON.stringify(obj)); } catch (e) { console.warn('Não foi possível gravar', chave); } };
+    const CHAVE_TRAT = 'mapaEmpresasVisitadas_v1', CHAVE_POS = 'mapaEmpresasPos_v1', CHAVE_ROTA = 'mapaEmpresasRota_v1';
+    let trat = lerJSON(CHAVE_TRAT) || {}, posAuto = lerJSON(CHAVE_POS) || {}, rota = lerJSON(CHAVE_ROTA) || [];
+    const gravar = (chave, obj) => { try { localStorage.setItem(chave, JSON.stringify(obj)); } catch (e) { console.warn('Não foi possível gravar', chave); } sincronizar(chave, obj); };
     const PALETA = ['#e6194b', '#3cb44b', '#4363d8', '#f58231', '#911eb4', '#00b8d9', '#f032e6', '#a8c800', '#008080', '#9a6324', '#800000', '#808000', '#000075', '#ff6f91'];
+
+        // ===== SINCRONIZAÇÃO COM O SUPABASE (tabela mapa_empresas_dados; uma linha por item) =====
+    const TAB = 'mapa_empresas_dados', TIPOS = {};
+    TIPOS[CHAVE_CORRECOES] = 'corr'; TIPOS[CHAVE_APM] = 'apm'; TIPOS[CHAVE_CORES] = 'cor'; TIPOS[CHAVE_TRAT] = 'trat'; TIPOS[CHAVE_POS] = 'pos';
+    const nuvem = { ok: false, vistos: {}, fila: Promise.resolve(), txt: '☁ sem sincronização' };
+
+    function sincronizar(chave, obj) {
+      const t = TIPOS[chave]; if (!t || !nuvem.ok) return;
+      const novo = chave === CHAVE_CORES ? obj.cores : obj, ant = nuvem.vistos[t] = nuvem.vistos[t] || {};
+      const subir = [], agora = new Date().toISOString();
+      Object.keys(novo).forEach(k => { const j = JSON.stringify(novo[k]); if (ant[k] !== j) { ant[k] = j; subir.push({ chave: t + '|' + k, valor: novo[k], atualizado: agora }); } });
+      const apagar = Object.keys(ant).filter(k => !(k in novo)); apagar.forEach(k => delete ant[k]);
+      if (!subir.length && !apagar.length) return;
+      nuvem.fila = nuvem.fila.then(async () => {
+        try {
+          for (let i = 0; i < subir.length; i += 500) { const r = await _supabase.from(TAB).upsert(subir.slice(i, i + 500)); if (r.error) throw r.error; }
+          for (let i = 0; i < apagar.length; i += 40) { const r = await _supabase.from(TAB).delete().in('chave', apagar.slice(i, i + 40).map(k => t + '|' + k)); if (r.error) throw r.error; }
+        } catch (e) { console.warn('Falha ao sincronizar', e); nuvem.txt = '☁ ⚠ falha ao salvar na nuvem'; $('rodape').textContent = $('rodape').textContent.replace(/ · ☁.*$/, '') + ' · ' + nuvem.txt; }
+      });
+    }
+
+    async function nuvemCarregar() {
+      try {
+        const linhas = [];
+        for (let i = 0; ; i += 1000) {
+          const { data, error } = await _supabase.from(TAB).select('chave,valor').order('chave').range(i, i + 999);
+          if (error) throw error;
+          linhas.push(...data); if (data.length < 1000) break;
+        }
+        const nuv = {};
+        linhas.forEach(l => { const p = l.chave.indexOf('|'); (nuv[l.chave.slice(0, p)] = nuv[l.chave.slice(0, p)] || {})[l.chave.slice(p + 1)] = l.valor; });
+        const alvo = { corr: correcoes, apm: apmBairro, cor: coresBairro.cores, trat: trat, pos: posAuto };
+        const primeira = !localStorage.getItem('mapaEmpresasNuvemIniciada');   // 1ª vez neste navegador: junta o que já existe aqui com a nuvem
+        Object.keys(alvo).forEach(t => {
+          nuvem.vistos[t] = {};
+          Object.keys(nuv[t] || {}).forEach(k => nuvem.vistos[t][k] = JSON.stringify(nuv[t][k]));
+          if (!primeira) Object.keys(alvo[t]).forEach(k => delete alvo[t][k]);   // depois disso, a nuvem manda
+          Object.assign(alvo[t], nuv[t] || {});
+        });
+        nuvem.ok = true; nuvem.txt = '☁ sincronizado';
+        localStorage.setItem('mapaEmpresasNuvemIniciada', '1');
+        gravar(CHAVE_CORRECOES, correcoes); gravar(CHAVE_APM, apmBairro); gravar(CHAVE_CORES, coresBairro); gravar(CHAVE_TRAT, trat); gravar(CHAVE_POS, posAuto);
+      } catch (e) { console.warn(e); nuvem.txt = '☁ sem sincronização (tabela não encontrada no Supabase)'; }
+    }
+
+    // ===== FILTROS (bairro / APM / visitadas), VISITAS, ROTA =====
+    let apmSel = '', ocultarTrat = false;
+    const bairrosOff = new Set();
+    const apmDe = e => apmBairro[e.bairroKey] || e.resp || '';
+    const listaApmsAll = () => [...new Set([...todosApms, ...empresas.map(e => e.resp), ...Object.values(apmBairro)].filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    const corApm = a => PALETA[(listaApmsAll().indexOf(a) + 3) % PALETA.length];
+    const dataBR = d => d ? d.split('-').reverse().join('/') : '';
+    const linhaTrat = e => trat[chaveEmp(e)] ? '<br>✅ Visitada em ' + dataBR(trat[chaveEmp(e)].data) : '';
+    const linhaObs = (e, ttip) => linhaTrat(e) + linhaObs0(e, ttip);
+
+    function renderFiltro() {
+      const aps = listaApmsAll();
+      if (apmSel && !aps.includes(apmSel)) apmSel = '';
+      $('selApm').innerHTML = '<option value="">Todos os APM</option>' + aps.map(a => '<option' + (apmSel === a ? ' selected' : '') + '>' + esc(a) + '</option>').join('');
+      $('listaFiltroBairros').innerHTML = bairros.map(b => '<label><input type="checkbox" data-k="' + esc(b.k) + '"' + (bairrosOff.has(b.k) ? '' : ' checked') + '><span>' + esc(b.nome) + '</span><span class="n">' + b.n + '</span></label>').join('');
+      $('listaFiltroBairros').querySelectorAll('input').forEach(i => i.addEventListener('change', () => { i.checked ? bairrosOff.delete(i.dataset.k) : bairrosOff.add(i.dataset.k); desenharPins(false); }));
+    }
+    $('selApm').addEventListener('change', e => { apmSel = e.target.value; desenharPins(false); });
+    $('chkOcultarTrat').addEventListener('change', e => { ocultarTrat = e.target.checked; desenharPins(false); });
+    $('btnBairrosTodos').addEventListener('click', () => { bairrosOff.clear(); renderFiltro(); desenharPins(false); });
+    $('btnBairrosNenhum').addEventListener('click', () => { bairros.forEach(b => bairrosOff.add(b.k)); renderFiltro(); desenharPins(false); });
+
+    function alternarVisita(e) {
+      const k = chaveEmp(e);
+      if (trat[k]) delete trat[k]; else trat[k] = { data: new Date().toLocaleDateString('sv-SE') };
+      gravar(CHAVE_TRAT, trat); map.closePopup(); desenharPins(false);
+      const g = grupos.find(g => g.itens.includes(e)); if (g) g.marker.openTooltip();
+    }
+
+    function renderRota() {
+      $('listaRota').innerHTML = rota.length ? '<ol>' + rota.map((p, i) => '<li>' + esc(p.nome) + ' <a href="#" data-i="' + i + '" title="Remover">✖</a></li>').join('') + '</ol>'
+        : '<div class="nota">Nenhuma parada. Clique num pino e em "Adicionar à rota".</div>';
+      $('listaRota').querySelectorAll('a').forEach(a => a.addEventListener('click', ev => { ev.preventDefault(); rota.splice(+a.dataset.i, 1); gravar(CHAVE_ROTA, rota); renderRota(); }));
+    }
+    function addRota(g) {
+      if (rota.some(p => p.lat === g.pos.lat && p.lng === g.pos.lng)) return;
+      rota.push({ lat: g.pos.lat, lng: g.pos.lng, nome: g.itens[0].end }); gravar(CHAVE_ROTA, rota); renderRota();
+    }
+    $('btnRotaAbrir').addEventListener('click', () => {
+      if (rota.length < 2) { alert('Adicione pelo menos 2 paradas à rota.'); return; }
+      if (rota.length > 11) alert('O Google Maps aceita até 11 paradas por rota. Serão abertas as 11 primeiras.');
+      const p = rota.slice(0, 11), ll = x => x.lat + ',' + x.lng;
+      window.open('https://www.google.com/maps/dir/?api=1&travelmode=driving&origin=' + ll(p[0]) + '&destination=' + ll(p[p.length - 1]) +
+        (p.length > 2 ? '&waypoints=' + encodeURIComponent(p.slice(1, -1).map(ll).join('|')) : ''), '_blank');
+    });
+    $('btnRotaOrdenar').addEventListener('click', () => {
+      if (rota.length < 3) return;
+      const d = (a, b) => (a.lat - b.lat) ** 2 + (a.lng - b.lng) ** 2, r = [rota.shift()];
+      while (rota.length) { let i = 0; rota.forEach((p, j) => { if (d(r[r.length - 1], p) < d(r[r.length - 1], rota[i])) i = j; }); r.push(rota.splice(i, 1)[0]); }
+      rota = r; gravar(CHAVE_ROTA, rota); renderRota();
+    });
+    $('btnRotaLimpar').addEventListener('click', () => { rota = []; gravar(CHAVE_ROTA, rota); renderRota(); });
+
+    // ===== EXPORTAR o que está visível no mapa =====
+    $('btnExportar').addEventListener('click', () => {
+      const v = visiveis(); if (!v.length) { alert('Nenhuma empresa visível no mapa para exportar.'); return; }
+      const linhas = v.map(e => ({
+        'Status': e.st, 'Razão Social': e.razao, 'Nome Fantasia': e.fantasia, 'CNPJ': e.cnpj, 'Endereço': e.end,
+        'Bairro': e.bairroKey ? nomeBairro(e.bairroKey) : e.bairro, 'APM': apmDe(e), 'Responsável pela Abordagem': e.resp, 'OBS': e.obs || '',
+        'Visitada em': trat[chaveEmp(e)] ? dataBR(trat[chaveEmp(e)].data) : '', 'Latitude': e.pos.lat, 'Longitude': e.pos.lng,
+        'Localização': e.corrigido ? 'Corrigida' : e.aprox ? 'Aproximada' : 'Exata'
+      }));
+      const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(linhas), 'Empresas');
+      XLSX.writeFile(wb, 'empresas_mapa_' + new Date().toISOString().slice(0, 10) + '.xlsx');
+    });
+
+    // guarda as coordenadas encontradas (sincronizadas) para que os outros usuários não precisem localizar de novo
+    function registrarPos() {
+      let mudou = false;
+      empresas.forEach(e => {
+        if (!e.pos || e.corrigido) return;
+        const k = chaveEmp(e);
+        if (!posAuto[k]) { posAuto[k] = { lat: +e.pos.lat.toFixed(6), lng: +e.pos.lng.toFixed(6), aprox: !!e.aprox }; mudou = true; }
+      });
+      if (mudou) gravar(CHAVE_POS, posAuto);
+    }
 
     // ===== BAIRROS (agrupa ITANHANGÁ/ITANHANGA e nomes cortados, como "RECREIO DOS BANDEIR") =====
     let bairros = [];                 // [{ k, nome, n }] em ordem alfabética
@@ -326,7 +465,7 @@
     }
 
     function renderBairros() {
-      $('chkCorBairro').checked = !!coresBairro.modo;
+      $('chkCorBairro').checked = !!coresBairro.modo; $('chkCorApm').checked = !!coresBairro.apm; renderFiltro();
       $('listaCores').innerHTML = bairros.map(b =>
         '<label class="lin"><input type="color" data-k="' + esc(b.k) + '" value="' + corBairro(b.k) + '"><span title="' + esc(b.nome) + '">' + esc(b.nome) +
         '</span><span class="n">' + b.n + '</span></label>').join('') || '<div class="nota">Sem bairros na planilha.</div>';
@@ -340,10 +479,11 @@
         lista.map(a => '<option' + (apmBairro[b.k] === a ? ' selected' : '') + '>' + esc(a) + '</option>').join('') + '</select></div>').join('') || '<div class="nota">Sem bairros na planilha.</div>';
       $('listaApm').querySelectorAll('select').forEach(sel => sel.addEventListener('change', () => {
         sel.value ? apmBairro[sel.dataset.k] = sel.value : delete apmBairro[sel.dataset.k];
-        gravar(CHAVE_APM, apmBairro);
+        gravar(CHAVE_APM, apmBairro); renderFiltro(); desenharPins(false);
       }));
     }
-    $('chkCorBairro').addEventListener('change', e => { coresBairro.modo = e.target.checked; gravar(CHAVE_CORES, coresBairro); desenharPins(false); });
+    $('chkCorBairro').addEventListener('change', e => { coresBairro.modo = e.target.checked; if (e.target.checked) { coresBairro.apm = false; $('chkCorApm').checked = false; } gravar(CHAVE_CORES, coresBairro); desenharPins(false); });
+    $('chkCorApm').addEventListener('change', e => { coresBairro.apm = e.target.checked; if (e.target.checked) { coresBairro.modo = false; $('chkCorBairro').checked = false; } gravar(CHAVE_CORES, coresBairro); desenharPins(false); });
     $('btnCoresAuto').addEventListener('click', () => { coresBairro.cores = {}; gravar(CHAVE_CORES, coresBairro); renderBairros(); desenharPins(false); });
     $('btnLimparApm').addEventListener('click', () => {
       if (!Object.keys(apmBairro).length || !confirm('Remover todas as associações de APM por bairro?')) return;
@@ -461,10 +601,10 @@
         e.tentou = true;
         feitas++;
         if (e.pos) nova++;
-        if (feitas % 5 === 0) { $('aviso').style.display = ''; $('aviso').textContent = 'Localizando endereços… ' + feitas + ' / ' + pend.length; redesenharSeLivre(false); salvarCache(); }
+        if (feitas % 5 === 0) { $('aviso').style.display = ''; $('aviso').textContent = 'Localizando endereços… ' + feitas + ' / ' + pend.length; redesenharSeLivre(false); salvarCache(); registrarPos(); }
       }
       if (id !== execId) return;
-      salvarCache();
+      salvarCache(); registrarPos();
       $('aviso').style.display = 'none';
       redesenharSeLivre(true);
     }
@@ -502,7 +642,7 @@
       const apm = apmBairro[e.bairroKey];
       return '<br>Bairro: ' + esc(nomeBairro(e.bairroKey)) + (apm ? ' · APM: ' + (cls ? '<span class="' + cls + '">' + esc(apm) + '</span>' : '<b>' + esc(apm) + '</b>') : '');
     };
-    const linhaObs = (e, ttip) => e.obs ? '<br>📝 ' + (ttip ? esc(e.obs.length > 140 ? e.obs.slice(0, 140) + '…' : e.obs) : '<i>' + esc(e.obs) + '</i>') : '';
+    const linhaObs0 = (e, ttip) => e.obs ? '<br>📝 ' + (ttip ? esc(e.obs.length > 140 ? e.obs.slice(0, 140) + '…' : e.obs) : '<i>' + esc(e.obs) + '</i>') : '';
     const notaLocal = (g, ttip) => g.itens.every(e => e.corrigido) ? (ttip ? '<div class="ok">✔ Local corrigido</div>' : '<div style="color:#15803d;font-size:12px">✔ Local corrigido</div>')
       : g.itens.some(e => e.aprox) ? (ttip ? '<div class="aprox">⚠ Localização aproximada</div>' : '<div style="color:#b45309;font-size:12px">⚠ Localização aproximada</div>') : '';
 
@@ -528,10 +668,12 @@
         '<div class="it" style="border-color:' + STATUS[e.st] + '">' + selo(e.st) + '<br><b>' + nomeEmp(e) + '</b>' +
         (e.cnpj ? '<br>CNPJ: ' + esc(e.cnpj) : '') + linhaBairro(e) + linhaObs(e, false) +
         (e.resp ? '<br>Responsável: ' + esc(e.resp) : '') +
-        '<br><a href="#" class="corrigir" data-i="' + i + '">✏️ Corrigir local</a></div>').join('');
+        '<br><a href="#" class="corrigir" data-i="' + i + '">✏️ Corrigir local</a> · <a href="#" class="visitar" data-i="' + i + '">' + (trat[chaveEmp(e)] ? '↩ Desmarcar visita' : '✅ Marcar visitada') + '</a></div>').join('');
       el.innerHTML = '<b>' + esc(g.itens[0].end) + '</b>' + it + notaLocal(g, false) +
-        '<div style="margin-top:6px"><a target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=' + g.pos.lat + ',' + g.pos.lng + '">Abrir no Google Maps</a></div>';
+        '<div style="margin-top:6px"><a target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=' + g.pos.lat + ',' + g.pos.lng + '">Abrir no Google Maps</a> · <a href="#" class="addrota">🚗 Adicionar à rota</a></div>';
       el.querySelectorAll('.corrigir').forEach(a => a.addEventListener('click', ev => { ev.preventDefault(); formCorrecao(el, g, g.itens[+a.dataset.i]); }));
+      el.querySelectorAll('.visitar').forEach(a => a.addEventListener('click', ev => { ev.preventDefault(); alternarVisita(g.itens[+a.dataset.i]); }));
+      el.querySelector('.addrota').addEventListener('click', ev => { ev.preventDefault(); addRota(g); ev.target.textContent = '✔ Na rota'; });
     }
 
     // ----- correção do endereço / local -----
@@ -662,7 +804,7 @@
     }
 
     function visiveis() {
-      return empresas.filter(e => e.pos && ativos.has(e.st));
+      return empresas.filter(e => e.pos && ativos.has(e.st) && !bairrosOff.has(e.bairroKey || '') && (!apmSel || apmDe(e) === apmSel) && !(ocultarTrat && trat[chaveEmp(e)]));
     }
 
     function desenharPins(ajustar) {
@@ -680,8 +822,12 @@
           const bs = [...new Set(g.itens.map(e => e.bairroKey))];
           cor = bs.length === 1 ? corBairro(bs[0]) : COR_MISTO;
           centro = sts.length === 1 ? STATUS[sts[0]] : '#ffffff';
+        } else if (coresBairro.apm) {
+          const as = [...new Set(g.itens.map(apmDe))];
+          cor = as.length > 1 ? COR_MISTO : as[0] ? corApm(as[0]) : '#9ca3af';
+          centro = sts.length === 1 ? STATUS[sts[0]] : '#ffffff';
         }
-        const mk = L.marker([g.pos.lat, g.pos.lng], { icon: iconePin(cor, g.itens.length, centro), riseOnHover: true });
+        const mk = L.marker([g.pos.lat, g.pos.lng], { icon: iconePin(cor, g.itens.length, centro), riseOnHover: true, opacity: g.itens.every(e => trat[chaveEmp(e)]) ? 0.45 : 1 });
         mk.bindTooltip(() => tooltipGrupo(g), { direction: 'top', className: 'setor-tooltip', opacity: 1 });
         mk.bindPopup(() => popupGrupo(g), { maxWidth: 340 });
         g.marker = mk;
@@ -708,7 +854,7 @@
       $('semTit').textContent = sem.length + ' empresa(s) sem localização';
       $('semLista').innerHTML = sem.map(e => '<li>' + esc(e.razao) + ' — ' + esc(e.st) + '<br>' + (e.end ? esc(e.end) : '(sem endereço)') + '</li>').join('');
       const loc = empresas.filter(e => e.pos).length;
-      $('rodape').textContent = empresas.length + ' empresa(s) · ' + loc + ' localizada(s) · ' + grupos.length + ' ponto(s) no mapa';
+      $('rodape').textContent = empresas.length + ' empresa(s) · ' + loc + ' localizada(s) · ' + grupos.length + ' ponto(s) no mapa · ' + nuvem.txt;
     }
 
     $('btnTodos').addEventListener('click', () => { Object.keys(STATUS).forEach(s => ativos.add(s)); desenharPins(false); });
@@ -743,6 +889,7 @@
           if (c.obs) e.obs = c.obs;
           if (c.lat != null) { e.pos = { lat: c.lat, lng: c.lng }; e.aprox = false; e.corrigido = true; }
         }
+        const pa = !e.pos && posAuto[chaveEmp(e)]; if (pa) { e.pos = { lat: pa.lat, lng: pa.lng }; e.aprox = !!pa.aprox; }
       });
       montarBairros();
       renderBairros();
@@ -751,6 +898,7 @@
         if (!e.end || e.pos) return;
         for (const [q, fa] of candidatos(e)) { const r = cache[q]; if (r) { e.pos = { lat: r.lat, lng: r.lng }; e.aprox = r.aprox || fa; break; } }
       });
+      registrarPos();
       desenharPins(true);
       const faltam = empresas.some(e => !e.pos && e.end);
       if (faltam) { $('aviso').style.display = ''; $('aviso').textContent = 'Localizando endereços…'; localizarTodas(); }
@@ -762,6 +910,7 @@
       try {
         if (!(await acessoOk)) return;
         carregarDados();
+        await nuvemCarregar(); renderRota();
         iniciarDados(false);
       } catch (e) {
         console.error(e);
