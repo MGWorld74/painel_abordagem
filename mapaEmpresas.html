@@ -104,6 +104,8 @@
     #lateral details.cartao[open] > summary { margin-bottom: 8px; }
     #lateral select#selApm { width: 100%; margin-bottom: 4px; }
     #listaRota ol { margin: 0 0 0 18px; } #listaRota li { margin: 3px 0; font-size: 12px; } #listaRota a { color: #c00; text-decoration: none; font-weight: bold; }
+    #inpPartida { width: 100%; padding: 5px; font-size: 12px; border: 1px solid #aaa; border-radius: 4px; }
+    #listaRotaBairros, #listaRota { max-height: 160px; overflow: auto; }
     #fonte { font-size: 12px; color: #444; line-height: 1.4; margin-bottom: 6px; }
     #lateral .linhaBtn { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
     #semLoc { font-size: 12px; margin-top: 8px; }
@@ -192,8 +194,18 @@
   </details>
   <details class="cartao" id="cartaoRota">
     <summary>🚗 Rota de visita</summary>
+    <h4>Ponto de partida</h4>
+    <input id="inpPartida" type="text">
+    <div class="linhaBtn"><button id="btnPartidaSalvar" type="button">Alterar partida</button><button id="btnPartidaPadrao" type="button" class="sec">Restaurar padrão</button></div>
+    <div class="nota" id="msgPartida"></div>
+    <h4>Rota automática por bairros</h4>
+    <div id="listaRotaBairros"></div>
+    <div class="linhaBtn"><button id="btnRotaBTodos" type="button" class="sec">✔ Todos</button><button id="btnRotaBNenhum" type="button" class="sec">✖ Nenhum</button><button id="btnRotaAuto" type="button">⚙ Gerar rota</button></div>
+    <div class="nota">Usa as empresas visíveis no mapa (valem os filtros de status, APM, bairro e visitadas) e ordena pelo mais próximo, a partir da partida.</div>
+    <h4>Paradas da rota</h4>
     <div id="listaRota"></div>
-    <div class="linhaBtn"><button id="btnRotaAbrir" type="button">Abrir no Google Maps</button><button id="btnRotaOrdenar" type="button" class="sec">Ordenar pelo mais próximo</button><button id="btnRotaLimpar" type="button" class="sec">Limpar</button></div>
+    <div id="rotaTrechos" class="linhaBtn"></div>
+    <div class="linhaBtn"><button id="btnRotaOrdenar" type="button" class="sec">Ordenar pelo mais próximo</button><button id="btnRotaLimpar" type="button" class="sec">Limpar</button></div>
   </details>
   </div>
   <div id="map"></div>
@@ -309,6 +321,9 @@
     let correcoes = lerJSON(CHAVE_CORRECOES) || {};
     const CHAVE_TRAT = 'mapaEmpresasVisitadas_v1', CHAVE_POS = 'mapaEmpresasPos_v1', CHAVE_ROTA = 'mapaEmpresasRota_v1';
     let trat = lerJSON(CHAVE_TRAT) || {}, posAuto = lerJSON(CHAVE_POS) || {}, rota = lerJSON(CHAVE_ROTA) || [];
+    const CHAVE_PARTIDA = 'mapaEmpresasPartida_v1', PARTIDA_PADRAO = 'Av. Ayrton Senna, 2001 - Jacarepaguá, Rio de Janeiro - RJ, 22775-002';
+    let partida = lerJSON(CHAVE_PARTIDA) || { txt: PARTIDA_PADRAO, lat: null, lng: null };
+    const rotaBairrosSel = new Set();
     const gravar = (chave, obj) => { try { localStorage.setItem(chave, JSON.stringify(obj)); } catch (e) { console.warn('Não foi possível gravar', chave); } sincronizar(chave, obj); };
     const PALETA = ['#e6194b', '#3cb44b', '#4363d8', '#f58231', '#911eb4', '#00b8d9', '#f032e6', '#a8c800', '#008080', '#9a6324', '#800000', '#808000', '#000075', '#ff6f91'];
 
@@ -372,41 +387,89 @@
       $('selApm').innerHTML = '<option value="">Todos os APM</option>' + aps.map(a => '<option' + (apmSel === a ? ' selected' : '') + '>' + esc(a) + '</option>').join('');
       $('listaFiltroBairros').innerHTML = bairros.map(b => '<label><input type="checkbox" data-k="' + esc(b.k) + '"' + (bairrosOff.has(b.k) ? '' : ' checked') + '><span>' + esc(b.nome) + '</span><span class="n">' + b.n + '</span></label>').join('');
       $('listaFiltroBairros').querySelectorAll('input').forEach(i => i.addEventListener('change', () => { i.checked ? bairrosOff.delete(i.dataset.k) : bairrosOff.add(i.dataset.k); desenharPins(false); }));
+      $('listaRotaBairros').innerHTML = bairros.filter(b => b.k).map(b => '<label><input type="checkbox" data-k="' + esc(b.k) + '"' + (rotaBairrosSel.has(b.k) ? ' checked' : '') + '><span>' + esc(b.nome) + '</span><span class="n">' + b.n + '</span></label>').join('');
+      $('listaRotaBairros').querySelectorAll('input').forEach(i => i.addEventListener('change', () => { i.checked ? rotaBairrosSel.add(i.dataset.k) : rotaBairrosSel.delete(i.dataset.k); }));
     }
     $('selApm').addEventListener('change', e => { apmSel = e.target.value; desenharPins(false); });
     $('chkOcultarTrat').addEventListener('change', e => { ocultarTrat = e.target.checked; desenharPins(false); });
     $('btnBairrosTodos').addEventListener('click', () => { bairrosOff.clear(); renderFiltro(); desenharPins(false); });
     $('btnBairrosNenhum').addEventListener('click', () => { bairros.forEach(b => bairrosOff.add(b.k)); renderFiltro(); desenharPins(false); });
 
-    function alternarVisita(e) {
+    function alternarVisita(e, el, g) {
       const k = chaveEmp(e);
       if (trat[k]) delete trat[k]; else trat[k] = { data: new Date().toLocaleDateString('sv-SE') };
-      gravar(CHAVE_TRAT, trat); map.closePopup(); desenharPins(false);
-      const g = grupos.find(g => g.itens.includes(e)); if (g) g.marker.openTooltip();
+      gravar(CHAVE_TRAT, trat);
+      desenharPopup(el, g);                                              // atualiza a janela aberta, sem fechá-la
+      g.marker.setOpacity(g.itens.every(x => trat[chaveEmp(x)]) ? 0.45 : 1);
+      g.marker.getPopup().update();
+      redesenharSeLivre(false);                                          // o redesenho completo espera a janela fechar
     }
 
     function renderRota() {
       $('listaRota').innerHTML = rota.length ? '<ol>' + rota.map((p, i) => '<li>' + esc(p.nome) + ' <a href="#" data-i="' + i + '" title="Remover">✖</a></li>').join('') + '</ol>'
-        : '<div class="nota">Nenhuma parada. Clique num pino e em "Adicionar à rota".</div>';
+        : '<div class="nota">Nenhuma parada. Clique num pino e em "Adicionar à rota", ou gere a rota automática por bairros.</div>';
       $('listaRota').querySelectorAll('a').forEach(a => a.addEventListener('click', ev => { ev.preventDefault(); rota.splice(+a.dataset.i, 1); gravar(CHAVE_ROTA, rota); renderRota(); }));
+      const n = Math.ceil(rota.length / 10);
+      $('rotaTrechos').innerHTML = Array.from({ length: n }, (_, i) => '<button type="button" data-t="' + i + '">🗺 ' + (n === 1 ? 'Abrir no Google Maps' : 'Abrir trecho ' + (i + 1) + ' (paradas ' + (i * 10 + 1) + '–' + Math.min(rota.length, i * 10 + 10) + ')') + '</button>').join('');
+      $('rotaTrechos').querySelectorAll('button').forEach(b => b.addEventListener('click', () => abrirTrecho(+b.dataset.t)));
     }
     function addRota(g) {
       if (rota.some(p => p.lat === g.pos.lat && p.lng === g.pos.lng)) return;
       rota.push({ lat: g.pos.lat, lng: g.pos.lng, nome: g.itens[0].end }); gravar(CHAVE_ROTA, rota); renderRota();
     }
-    $('btnRotaAbrir').addEventListener('click', () => {
-      if (rota.length < 2) { alert('Adicione pelo menos 2 paradas à rota.'); return; }
-      if (rota.length > 11) alert('O Google Maps aceita até 11 paradas por rota. Serão abertas as 11 primeiras.');
-      const p = rota.slice(0, 11), ll = x => x.lat + ',' + x.lng;
-      window.open('https://www.google.com/maps/dir/?api=1&travelmode=driving&origin=' + ll(p[0]) + '&destination=' + ll(p[p.length - 1]) +
-        (p.length > 2 ? '&waypoints=' + encodeURIComponent(p.slice(1, -1).map(ll).join('|')) : ''), '_blank');
+    // ----- ponto de partida (fixo, mas pode ser alterado) -----
+    async function posPartida() {
+      if (partida.lat != null) return partida;
+      const pt = partida.txt.split(' - ').map(x => x.trim());
+      const qs = candidatos({ end: pt[0], bairro: pt[1] || '', municipio: 'Rio de Janeiro', uf: 'RJ' }).map(c => c[0]).concat([partida.txt + ', Brasil']);
+      try { for (const q of qs) { const r = await nominatim(q); if (r) { partida.lat = r.lat; partida.lng = r.lng; gravar(CHAVE_PARTIDA, partida); return partida; } } } catch (e) {}
+      return null;
+    }
+    $('inpPartida').value = partida.txt;
+    $('btnPartidaSalvar').addEventListener('click', async () => {
+      const t = $('inpPartida').value.trim();
+      if (!t) { $('msgPartida').textContent = 'Digite o endereço de partida.'; return; }
+      partida = { txt: t, lat: null, lng: null }; gravar(CHAVE_PARTIDA, partida);
+      $('msgPartida').textContent = 'Localizando…';
+      const r = await posPartida();
+      $('msgPartida').textContent = r ? '✔ Partida salva e localizada.' : '⚠ Partida salva, mas não consegui localizá-la para ordenar as paradas; o Google Maps usará o texto digitado.';
     });
-    $('btnRotaOrdenar').addEventListener('click', () => {
-      if (rota.length < 3) return;
-      const d = (a, b) => (a.lat - b.lat) ** 2 + (a.lng - b.lng) ** 2, r = [rota.shift()];
-      while (rota.length) { let i = 0; rota.forEach((p, j) => { if (d(r[r.length - 1], p) < d(r[r.length - 1], rota[i])) i = j; }); r.push(rota.splice(i, 1)[0]); }
-      rota = r; gravar(CHAVE_ROTA, rota); renderRota();
+    $('btnPartidaPadrao').addEventListener('click', () => { $('inpPartida').value = PARTIDA_PADRAO; $('btnPartidaSalvar').click(); });
+
+    // ----- abrir a rota no Google Maps (trechos de 10 paradas; o trecho seguinte parte da última parada do anterior) -----
+    async function abrirTrecho(t) {
+      const p = rota.slice(t * 10, t * 10 + 10); if (!p.length) return;
+      const ll = x => x.lat + ',' + x.lng;
+      let origem;
+      if (t === 0) { const ini = await posPartida(); origem = ini ? ll(ini) : partida.txt; } else origem = ll(rota[t * 10 - 1]);
+      window.open('https://www.google.com/maps/dir/?api=1&travelmode=driving&origin=' + encodeURIComponent(origem) + '&destination=' + encodeURIComponent(ll(p[p.length - 1])) +
+        (p.length > 1 ? '&waypoints=' + encodeURIComponent(p.slice(0, -1).map(ll).join('|')) : ''), '_blank');
+    }
+    // ordena pelo mais próximo, começando pela partida
+    function ordenarPontos(lista, ini) {
+      const pts = lista.slice(), r = [], d = (a, b) => (a.lat - b.lat) ** 2 + (a.lng - b.lng) ** 2;
+      let cur = ini; if (!cur) { cur = pts.shift(); r.push(cur); }
+      while (pts.length) { let i = 0; pts.forEach((p, j) => { if (d(cur, p) < d(cur, pts[i])) i = j; }); cur = pts.splice(i, 1)[0]; r.push(cur); }
+      return r;
+    }
+    $('btnRotaOrdenar').addEventListener('click', async () => {
+      if (rota.length < 2) return;
+      rota = ordenarPontos(rota, await posPartida()); gravar(CHAVE_ROTA, rota); renderRota();
     });
+    // rota automática: todas as empresas visíveis dos bairros marcados
+    async function gerarRotaAuto() {
+      const ks = new Set([...$('listaRotaBairros').querySelectorAll('input:checked')].map(i => i.dataset.k));
+      if (!ks.size) { alert('Marque pelo menos um bairro.'); return; }
+      const por = {};
+      visiveis().filter(e => ks.has(e.bairroKey || '')).forEach(e => { por[e.pos.lat.toFixed(5) + ',' + e.pos.lng.toFixed(5)] = por[e.pos.lat.toFixed(5) + ',' + e.pos.lng.toFixed(5)] || { lat: e.pos.lat, lng: e.pos.lng, nome: e.end }; });
+      const pts = Object.values(por);
+      if (!pts.length) { alert('Nenhuma empresa visível nesses bairros. Confira os filtros de status, APM, bairro e visitadas.'); return; }
+      if (rota.length && !confirm('Substituir a rota atual por uma rota automática com ' + pts.length + ' parada(s)?')) return;
+      rota = ordenarPontos(pts, await posPartida()); gravar(CHAVE_ROTA, rota); renderRota();
+    }
+    $('btnRotaAuto').addEventListener('click', gerarRotaAuto);
+    $('btnRotaBTodos').addEventListener('click', () => { bairros.forEach(b => b.k && rotaBairrosSel.add(b.k)); renderFiltro(); });
+    $('btnRotaBNenhum').addEventListener('click', () => { rotaBairrosSel.clear(); renderFiltro(); });
     $('btnRotaLimpar').addEventListener('click', () => { rota = []; gravar(CHAVE_ROTA, rota); renderRota(); });
 
     // ===== EXPORTAR o que está visível no mapa =====
@@ -672,7 +735,7 @@
       el.innerHTML = '<b>' + esc(g.itens[0].end) + '</b>' + it + notaLocal(g, false) +
         '<div style="margin-top:6px"><a target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=' + g.pos.lat + ',' + g.pos.lng + '">Abrir no Google Maps</a> · <a href="#" class="addrota">🚗 Adicionar à rota</a></div>';
       el.querySelectorAll('.corrigir').forEach(a => a.addEventListener('click', ev => { ev.preventDefault(); formCorrecao(el, g, g.itens[+a.dataset.i]); }));
-      el.querySelectorAll('.visitar').forEach(a => a.addEventListener('click', ev => { ev.preventDefault(); alternarVisita(g.itens[+a.dataset.i]); }));
+      el.querySelectorAll('.visitar').forEach(a => a.addEventListener('click', ev => { ev.preventDefault(); alternarVisita(g.itens[+a.dataset.i], el, g); }));
       el.querySelector('.addrota').addEventListener('click', ev => { ev.preventDefault(); addRota(g); ev.target.textContent = '✔ Na rota'; });
     }
 
