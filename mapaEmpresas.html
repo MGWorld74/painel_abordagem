@@ -27,12 +27,18 @@
           return false;
         }
         document.documentElement.style.visibility = 'visible';
+        // se sair (logout em outra aba, sessão expirada) ou voltar pelo botão "voltar" já deslogado, bloqueia de novo
+        _supabase.auth.onAuthStateChange((ev, ses) => {
+          if (ev === 'SIGNED_OUT' || !ses) { document.documentElement.style.visibility = 'hidden'; window.location.replace('index.html'); }
+        });
         return true;
       } catch (e) {
         window.location.replace('index.html');
         return false;
       }
     })();
+    // página restaurada do cache do navegador (botão voltar): confere o login de novo
+    window.addEventListener('pageshow', ev => { if (ev.persisted) { document.documentElement.style.visibility = 'hidden'; window.location.reload(); } });
   </script>
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -474,20 +480,28 @@
     $('btnRotaExportar').addEventListener('click', () => {
       if (!rota.length) { alert('A rota está vazia. Adicione paradas ou gere a rota automática.'); return; }
       const vis = visiveis(), chave = x => x.lat.toFixed(5) + ',' + x.lng.toFixed(5);
-      const linhas = [{ 'Parada': 0, 'Trecho': '', 'Endereço': partida.txt, 'Bairro': '', 'APM': '', 'Empresa': 'PONTO DE PARTIDA', 'CNPJ': '', 'Status': '', 'OBS': '', 'Visitada em': '', 'Google Maps': '' }];
+      const link0 = '';
+      const linhas = [{ 'PARADA': 0, 'EMPRESA': 'PONTO DE PARTIDA', 'CNPJ': '', 'BAIRRO': '', 'STATUS': '', 'TRECHO': '', 'ENDEREÇO': partida.txt, 'APM': '', 'OBS': '', 'VISITADA EM': '', 'GOOGLE MAPS': link0 }];
       rota.forEach((p, i) => {
         let emps = vis.filter(e => chave(e.pos) === chave(p));
         if (!emps.length) emps = empresas.filter(e => e.pos && chave(e.pos) === chave(p));
-        const base = { 'Parada': i + 1, 'Trecho': Math.floor(i / 10) + 1, 'Endereço': p.nome };
         const link = 'https://www.google.com/maps/search/?api=1&query=' + p.lat + ',' + p.lng;
-        (emps.length ? emps : [null]).forEach(e => linhas.push(Object.assign({}, base, {
-          'Bairro': e ? (e.bairroKey ? nomeBairro(e.bairroKey) : e.bairro) : '', 'APM': e ? apmDe(e) : '',
-          'Empresa': e ? e.razao + (e.fantasia && e.fantasia !== 'S/D' ? ' (' + e.fantasia + ')' : '') : '', 'CNPJ': e ? e.cnpj : '',
-          'Status': e ? e.st : '', 'OBS': e ? (e.obs || '') : '', 'Visitada em': e && trat[chaveEmp(e)] ? dataBR(trat[chaveEmp(e)].data) : '', 'Google Maps': link
-        })));
+        (emps.length ? emps : [null]).forEach(e => linhas.push({
+          'PARADA': i + 1,
+          'EMPRESA': e ? e.razao + (e.fantasia && e.fantasia !== 'S/D' ? ' (' + e.fantasia + ')' : '') : '',
+          'CNPJ': e ? e.cnpj : '',
+          'BAIRRO': e ? (e.bairroKey ? nomeBairro(e.bairroKey) : e.bairro) : '',
+          'STATUS': e ? e.st : '',
+          'TRECHO': Math.floor(i / 10) + 1,
+          'ENDEREÇO': p.nome,
+          'APM': e ? apmDe(e) : '',
+          'OBS': e ? (e.obs || '') : '',
+          'VISITADA EM': e && trat[chaveEmp(e)] ? dataBR(trat[chaveEmp(e)].data) : '',
+          'GOOGLE MAPS': link
+        }));
       });
       const ws = XLSX.utils.json_to_sheet(linhas);
-      ws['!cols'] = [8, 8, 42, 20, 20, 42, 20, 24, 40, 12, 50].map(w => ({ wch: w }));
+      ws['!cols'] = [8, 42, 20, 20, 24, 8, 42, 20, 40, 12, 50].map(w => ({ wch: w }));
       const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Rota');
       XLSX.writeFile(wb, 'rota_' + new Date().toISOString().slice(0, 10) + '.xlsx');
     });
