@@ -100,6 +100,8 @@
     #lateral .dot { width: 12px; height: 12px; border-radius: 50%; flex: none; border: 1px solid rgba(0,0,0,.25); }
     #lateral .n { margin-left: auto; color: #555; font-variant-numeric: tabular-nums; }
     #lateral label.zero { opacity: .45; }
+    #cartaoBairros summary { cursor: pointer; font-size: 12px; font-weight: bold; text-transform: uppercase; color: #555; }
+    #cartaoBairros[open] summary { margin-bottom: 8px; }
     #fonte { font-size: 12px; color: #444; line-height: 1.4; margin-bottom: 6px; }
     #lateral .linhaBtn { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
     #semLoc { font-size: 12px; margin-top: 8px; }
@@ -154,19 +156,21 @@
       <button id="btnPainel" type="button" class="sec" style="display:none">Usar planilha do painel</button>
     </div>
     <h4>Status das empresas</h4>
+    <div class="nota" style="margin:0 0 4px">Marque os status que devem aparecer no mapa.</div>
+    <div class="linhaBtn" style="margin:0 0 4px">
+      <button id="btnTodos" type="button" class="sec">✔ Selecionar todas</button>
+      <button id="btnNenhum" type="button" class="sec">✖ Limpar</button>
+    </div>
     <div id="legenda"></div>
-    <h4>Setores (KMZ)</h4>
-    <label><input type="checkbox" id="chkABT" checked> Setores ABT</label>
-    <label><input type="checkbox" id="chkAJA" checked> Setores AJA</label>
     <details id="semLoc" style="display:none"><summary id="semTit"></summary><ul id="semLista"></ul></details>
   </div>
-  <div class="cartao" id="cartaoBairros">
-    <h4>🎨 Cor dos pinos por bairro</h4>
+  <details class="cartao" id="cartaoBairros">
+    <summary>🎨 Cores bairros</summary>
     <label><input type="checkbox" id="chkCorBairro"> Colorir os pinos por bairro</label>
     <div id="listaCores"></div>
     <div class="nota">Com a cor por bairro ligada, o pino fica da cor do bairro e o círculo no centro mostra a cor do status.</div>
     <div class="linhaBtn"><button id="btnCoresAuto" type="button" class="sec">Cores automáticas</button></div>
-  </div>
+  </details>
   <div class="cartao" id="cartaoApm">
     <h4>👤 APM por bairro</h4>
     <div id="listaApm"></div>
@@ -179,7 +183,6 @@
   <div id="rodape"></div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" integrity="sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw" crossorigin="anonymous"></script>
 
   <script>
@@ -187,10 +190,6 @@
     const CHAVE_PAINEL = 'dadosImportadosCNPJ';        // onde o painel.html guarda a planilha importada
     const CHAVE_OUTRA = 'mapaEmpresasPlanilhaPropria'; // planilha importada direto neste mapa (substitui a do painel)
     const CHAVE_GEO = 'mapaEmpresasGeo_v1';            // endereços já localizados (cache)
-    const KMZS = [
-      { nome: 'ABT', arquivo: 'ABT.kmz', chk: 'chkABT' },
-      { nome: 'AJA', arquivo: 'AJA.kmz', chk: 'chkAJA' }
-    ];
     // Somente estes status aparecem no mapa (COLETADA, FAC e outros ficam de fora)
     const STATUS = {
       'ABORDADA': '#2563eb', 'ABORDAGEM EM ANDAMENTO': '#0891b2', 'ACORDADA': '#16a34a', 'COBRADA': '#ca8a04',
@@ -204,7 +203,7 @@
     const chaveCol = s => norm(s).replace(/[^A-Z0-9]/g, '');
     const espera = ms => new Promise(r => setTimeout(r, ms));
 
-    // ===== MAPA (mesmo modelo do mapaABT / mapaAJA) =====
+    // ===== MAPA =====
     const map = L.map('map', { preferCanvas: true }).setView([-22.96, -43.38], 12);
     const canvas = L.canvas({ padding: 0.5 });
     const esri = 'https://server.arcgisonline.com/ArcGIS/rest/services/';
@@ -225,65 +224,6 @@
       'Satélite com nomes de ruas': hibrido,
       'Mapa de ruas': ruas
     }, null, { position: 'topright', collapsed: true }).addTo(map);
-
-    const ESTILO_SETOR = { color: '#ffff00', weight: 3, fill: true, fillColor: '#000080', fillOpacity: 0 };
-    const ESTILO_FACE = { color: '#ff0000', weight: 2, interactive: false, renderer: canvas };
-    const gruposKmz = {};   // 'ABT' -> L.featureGroup
-
-    // ===== KMZ (setores e faces, só como fundo) =====
-    const parseCoords = txt => txt.trim().split(/\s+/).map(p => {
-      const [lon, lat] = p.split(',');
-      return [parseFloat(lat), parseFloat(lon)];
-    }).filter(c => !isNaN(c[0]) && !isNaN(c[1]));
-
-    async function carregarKMZ(cfg) {
-      const grupo = L.featureGroup();
-      gruposKmz[cfg.nome] = grupo;
-      const resp = await fetch(cfg.arquivo);
-      if (!resp.ok) throw new Error('Não foi possível baixar o ' + cfg.arquivo);
-      const zip = await JSZip.loadAsync(await resp.arrayBuffer());
-      const kmlFile = zip.file('doc.kml') || (zip.file(/\.kml$/i) || [])[0];
-      if (!kmlFile) throw new Error('Nenhum .kml dentro de ' + cfg.arquivo);
-      const dom = new DOMParser().parseFromString(await kmlFile.async('string'), 'text/xml');
-      if (dom.querySelector('parsererror')) throw new Error('KML corrompido em ' + cfg.arquivo);
-      const pms = Array.from(dom.getElementsByTagName('Placemark'));
-
-      pms.filter(pm => pm.getElementsByTagName('LineString').length).forEach(pm => {
-        for (const ls of pm.getElementsByTagName('LineString')) {
-          const c = ls.getElementsByTagName('coordinates')[0];
-          if (c) L.polyline(parseCoords(c.textContent), ESTILO_FACE).addTo(grupo);
-        }
-      });
-      pms.filter(pm => pm.getElementsByTagName('Polygon').length).forEach(pm => {
-        const nomeEl = pm.getElementsByTagName('name')[0];
-        const codigo = (nomeEl ? nomeEl.textContent : '').trim();
-        if (!codigo) return;
-        const polys = [];
-        for (const pg of pm.getElementsByTagName('Polygon')) {
-          const rings = [];
-          const outer = pg.getElementsByTagName('outerBoundaryIs')[0];
-          if (outer) rings.push(parseCoords(outer.getElementsByTagName('coordinates')[0].textContent));
-          for (const inner of pg.getElementsByTagName('innerBoundaryIs')) {
-            rings.push(parseCoords(inner.getElementsByTagName('coordinates')[0].textContent));
-          }
-          if (rings.length) polys.push(rings);
-        }
-        if (!polys.length) return;
-        const layer = L.polygon(polys.length === 1 ? polys[0] : polys, Object.assign({ renderer: canvas, interactive: true }, ESTILO_SETOR));
-        layer.bindTooltip('Setor ' + esc(codigo.slice(0, -4)) + '<b>' + esc(codigo.slice(-4)) + '</b>',
-          { sticky: true, direction: 'auto', className: 'setor-tooltip' });
-        layer.on('mouseover', () => layer.setStyle({ weight: 5, color: '#ffffff' }));
-        layer.on('mouseout', () => layer.setStyle(ESTILO_SETOR));
-        layer.addTo(grupo);
-      });
-      if ($(cfg.chk).checked) grupo.addTo(map);
-    }
-
-    KMZS.forEach(cfg => $(cfg.chk).addEventListener('change', e => {
-      const g = gruposKmz[cfg.nome];
-      if (!g) return;
-      e.target.checked ? g.addTo(map) : map.removeLayer(g);
-    }));
 
     // ===== DADOS DA PLANILHA =====
     const COLS = {
@@ -769,6 +709,9 @@
       $('rodape').textContent = empresas.length + ' empresa(s) · ' + loc + ' localizada(s) · ' + grupos.length + ' ponto(s) no mapa';
     }
 
+    $('btnTodos').addEventListener('click', () => { Object.keys(STATUS).forEach(s => ativos.add(s)); desenharPins(false); });
+    $('btnNenhum').addEventListener('click', () => { ativos.clear(); desenharPins(false); });
+
     // ===== BUSCA (empresa, CNPJ ou endereço) =====
     function buscar() {
       const msg = $('buscaMsg'); msg.className = ''; msg.textContent = '';
@@ -817,13 +760,7 @@
       try {
         if (!(await acessoOk)) return;
         carregarDados();
-        const res = await Promise.allSettled(KMZS.map(carregarKMZ));
-        const erros = res.filter(r => r.status === 'rejected').map(r => r.reason.message);
-        if (erros.length) console.warn(erros.join(' | '));
-        const todos = L.featureGroup(Object.values(gruposKmz));
-        if (todos.getBounds().isValid()) map.fitBounds(todos.getBounds());
         iniciarDados(false);
-        if (erros.length) { $('rodape').title = erros.join('\n'); }
       } catch (e) {
         console.error(e);
         $('aviso').textContent = 'Erro ao carregar o mapa: ' + e.message;
