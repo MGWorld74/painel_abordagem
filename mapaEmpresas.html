@@ -100,8 +100,8 @@
     #lateral .dot { width: 12px; height: 12px; border-radius: 50%; flex: none; border: 1px solid rgba(0,0,0,.25); }
     #lateral .n { margin-left: auto; color: #555; font-variant-numeric: tabular-nums; }
     #lateral label.zero { opacity: .45; }
-    #cartaoBairros summary { cursor: pointer; font-size: 12px; font-weight: bold; text-transform: uppercase; color: #555; }
-    #cartaoBairros[open] summary { margin-bottom: 8px; }
+    #lateral details.cartao > summary { cursor: pointer; font-size: 12px; font-weight: bold; text-transform: uppercase; color: #555; }
+    #lateral details.cartao[open] > summary { margin-bottom: 8px; }
     #fonte { font-size: 12px; color: #444; line-height: 1.4; margin-bottom: 6px; }
     #lateral .linhaBtn { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
     #semLoc { font-size: 12px; margin-top: 8px; }
@@ -155,28 +155,30 @@
     <div class="linhaBtn">
       <button id="btnPainel" type="button" class="sec" style="display:none">Usar planilha do painel</button>
     </div>
-    <h4>Status das empresas</h4>
+    <details id="semLoc" style="display:none"><summary id="semTit"></summary><ul id="semLista"></ul></details>
+  </div>
+  <details class="cartao" id="cartaoStatus">
+    <summary>Status das empresas</summary>
     <div class="nota" style="margin:0 0 4px">Marque os status que devem aparecer no mapa.</div>
     <div class="linhaBtn" style="margin:0 0 4px">
       <button id="btnTodos" type="button" class="sec">✔ Selecionar todas</button>
       <button id="btnNenhum" type="button" class="sec">✖ Limpar</button>
     </div>
     <div id="legenda"></div>
-    <details id="semLoc" style="display:none"><summary id="semTit"></summary><ul id="semLista"></ul></details>
-  </div>
+  </details>
   <details class="cartao" id="cartaoBairros">
-    <summary>🎨 Cores bairros</summary>
+    <summary>🎨 Cores por bairros</summary>
     <label><input type="checkbox" id="chkCorBairro"> Colorir os pinos por bairro</label>
     <div id="listaCores"></div>
     <div class="nota">Com a cor por bairro ligada, o pino fica da cor do bairro e o círculo no centro mostra a cor do status.</div>
     <div class="linhaBtn"><button id="btnCoresAuto" type="button" class="sec">Cores automáticas</button></div>
   </details>
-  <div class="cartao" id="cartaoApm">
-    <h4>👤 APM por bairro</h4>
+  <details class="cartao" id="cartaoApm">
+    <summary>👤 APM por bairro</summary>
     <div id="listaApm"></div>
     <div class="nota">O APM escolhido aparece ao passar o mouse nos pinos do bairro.</div>
     <div class="linhaBtn"><button id="btnLimparApm" type="button" class="sec">Limpar associações</button></div>
-  </div>
+  </details>
   </div>
   <div id="map"></div>
   <div id="aviso">Carregando mapa…</div>
