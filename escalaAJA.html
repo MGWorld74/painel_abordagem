@@ -207,7 +207,7 @@ function render(){
   $("ht").textContent=a?`Editando ${a.nome||"novo servidor"}. Clique fora da linha ou pressione Esc para concluir.`
     :modoLocal?"Modo local sem login: somente leitura."
     :podeEditar?"Edição liberada. Clique com o botão direito do mouse para editar, excluir ou adicionar servidores (na tabela de cima, também para escolher o APM de cada dia)."
-    :"Tabelas travadas. Clique com o botão direito do mouse e informe a senha para editar.";
+    :"Clique com o botão direito do mouse para editar.";
   render2();ajusta();
 }
 /* Tabela 2: quadro semanal (Agência x dias). Sempre gerada a partir dos mesmos dados da tabela 1 */
