@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Escala de Servidores - ABT</title>
 <style id="guarda-css">html{visibility:hidden}</style>
+<noscript><meta http-equiv="refresh" content="0;url=index.html"></noscript>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
@@ -36,7 +37,7 @@ th.s{cursor:pointer;user-select:none;position:sticky;top:0;z-index:2}
 th.s:hover{background:#13315c}
 th.titulo{background:#1d4e89;border-color:#1d4e89;padding:10px 12px;cursor:default}
 .t1{font-size:1.45rem;font-weight:700}
-.t2{font-size:.95rem;font-weight:600;letter-spacing:.06em;margin-top:4px}
+.t2{font-size:.95rem;font-weight:700;font-style:italic;letter-spacing:.03em;margin-top:4px}
 tr.AJA td{background:#eaf3fc}
 tr.ABT td{background:#fdf1dc}
 tr.ed td{background:#fff9c4}
@@ -78,6 +79,7 @@ td input:focus,td select:focus{outline:2px solid #1d4e89}
 <div class="painel">
 <div class="bar">
   <a class="btn" href="painel.html">← Voltar</a>
+  <select id="fag" title="Filtrar por agência"><option value="">Todas as agências</option><option value="ABT">ABT</option><option value="AJA">AJA</option></select>
   <button class="btn" id="pw" style="display:none" title="Somente o proprietário">🔑 Alterar senha</button>
   <button class="btn" id="xls">Salvar em planilha</button>
   <button class="btn" id="pdf">Salvar em PDF</button>
@@ -100,26 +102,11 @@ td input:focus,td select:focus{outline:2px solid #1d4e89}
 <script>
 const AG="ABT";
 const sb=supabase.createClient('https://jvjfpxrknggeodjgamyu.supabase.co','sb_publishable_yxHF_N1gjdGoHMEoM5GF2w_QVMzzMF0');
-const noGit=location.hostname.endsWith("github.io");
+const sair=()=>location.replace("index.html");
 const DIAS=["segunda-feira","terça-feira","quarta-feira","quinta-feira","sexta-feira"];
 const uid=()=>Math.random().toString(36).slice(2);
-const P=(ag,nome,email,siape,dia)=>({id:uid(),ag,nome,email,siape,dias:[dia]});
-const SEED=[
-["AJA","Adriana Costa Braz dos Santos","adriana.braz@ibge.gov.br","3471919","terça-feira"],
-["AJA","Arthur Louzada de Souza","arthur.souza@ibge.gov.br","3476717","quarta-feira"],
-["AJA","Fabio Pereira Silva","fabio.pereira@ibge.gov.br","3451876","quarta-feira"],
-["AJA","Gabriel Finotti dos Reis Nunes","gabriel-finotti.reis@ibge.gov.br","3373216","sexta-feira"],
-["AJA","Hugo de Mello Sampaio","hugo.mello@ibge.gov.br","3476720","segunda-feira"],
-["AJA","Iuri George da Silva Palmeira","iuri.palmeira@ibge.gov.br","2157841","sexta-feira"],
-["AJA","Lucas Mucuri Ramos","lucas.mucuri@ibge.gov.br","3469134","sexta-feira"],
-["AJA","Maury Fadel Goncalves","maury.goncalves@ibge.gov.br","3408075","segunda-feira"],
-["AJA","Paulo Felipe Ferreira Tavares","paulo-felipe.tavares@ibge.gov.br","3495437","quinta-feira"],
-["AJA","Romenig Oliveira Candido","romenig.candido@ibge.gov.br","3392136","quarta-feira"],
-["ABT","Guilherme Silva Xavier de Souza","guilherme.xavier@ibge.gov.br","1100687","terça-feira"],
-["ABT","Icaro Leandro Costa dos Santos Teixeira","icaro.teixeira@ibge.gov.br","3452834","terça-feira"],
-["ABT","Joao Gabriel Martins da Cruz Moraes","joao.moraes@ibge.gov.br","3505895","terça-feira"]];
 
-let apms=[],editId=null,podeEditar=false,proprietario=false,senhaEdicao="",seedCache=null,modoLocal=false,versao=null,meta={},usuario="",filtroDia="",ord={c:"",d:1},fila=Promise.resolve();
+let apms=[],editId=null,podeEditar=false,proprietario=false,senhaEdicao="",versao=null,meta={},usuario="",filtroDia="",filtroAg="",ord={c:"",d:1},fila=Promise.resolve();
 const novos=new Set();
 const $=id=>document.getElementById(id),tb=$("tb"),menu=$("menu");
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -129,20 +116,23 @@ const fone=v=>{const d=String(v||"").replace(/\D/g,"").slice(0,11);if(!d)return"
 const sz=v=>Math.max(8,String(v||"").length+1);
 const ordem=l=>[...l].sort((x,y)=>DIAS.indexOf(x)-DIAS.indexOf(y));
 const st=t=>$("st").textContent=t;
-const normaliza=l=>(Array.isArray(l)?l:[]).map(a=>({id:a.id||uid(),ag:AG,nome:a.nome||"",email:a.email||"",contato:fone(a.contato),siape:String(a.siape||""),dias:ordem(Array.isArray(a.dias)?a.dias:(a.dia?[a.dia]:[]))}));
-function semente(){return normaliza(SEED.filter(r=>r[0]===AG).map(r=>P(...r)))}
+const normaliza=(l,ag)=>(Array.isArray(l)?l:[]).map(a=>({id:a.id||uid(),ag,nome:a.nome||"",email:a.email||"",contato:fone(a.contato),siape:String(a.siape||""),dias:ordem(Array.isArray(a.dias)?a.dias:(a.dia?[a.dia]:[]))}));
 
 /* Dados no Supabase */
 async function carregar(){
-  const{data,error}=await sb.from("escala_agencia").select("dados,atualizado_em,atualizado_por").eq("agencia",AG).maybeSingle();
+  const{data,error}=await sb.from("escala_agencia").select("agencia,dados,atualizado_em,atualizado_por").in("agencia",["ABT","AJA"]);
   if(error){st("Erro ao carregar");return}
-  if(data){apms=normaliza(data.dados);versao=data.atualizado_em;meta=data}else{if(!seedCache)seedCache=semente();apms=JSON.parse(JSON.stringify(seedCache));versao=null;meta={}}
+  apms=[];versao=null;meta={};
+  (data||[]).forEach(r=>{
+    apms.push(...normaliza(r.dados,r.agencia));
+    if(r.agencia===AG){versao=r.atualizado_em;meta=r}
+  });
   render();
 }
 async function _salvar(){
   if(!podeEditar)return false;
   st("Salvando…");
-  const r=await sb.rpc("escala_salvar",{p_agencia:AG,p_dados:apms,p_versao:versao,p_senha:senhaEdicao});
+  const r=await sb.rpc("escala_salvar",{p_agencia:AG,p_dados:apms.filter(a=>a.ag===AG),p_versao:versao,p_senha:senhaEdicao});
   if(r.error){
     const m=r.error.message||"";
     if(m.includes("CONFLITO"))alert("Outra pessoa alterou a escala enquanto você editava. Vou recarregar a versão mais recente; refaça a sua alteração.");
@@ -156,7 +146,7 @@ const salvar=()=>fila=fila.then(_salvar);
 
 /* Filtros, ordenação e tela */
 function filtrados(comDia){
-  return apms.filter(a=>a.id===editId||(!comDia||!filtroDia||a.dias.includes(filtroDia)));
+  return apms.filter(a=>a.id===editId||((!filtroAg||a.ag===filtroAg)&&(!comDia||!filtroDia||a.dias.includes(filtroDia))));
 }
 function ordenados(l){
   const c=ord.c||"ag",v=a=>c==="dias"?(a.dias.length?DIAS.indexOf(a.dias[0]):9):norm(a[c]);
@@ -185,7 +175,6 @@ function render(){
   $("rod").textContent=quando();
   const a=apms.find(x=>x.id===editId);
   $("ht").textContent=a?`Editando ${a.nome||"novo servidor"}. Clique fora da linha ou pressione Esc para concluir.`
-    :modoLocal?"Modo local sem login: somente leitura."
     :podeEditar?"Edição liberada. Clique com o botão direito do mouse para editar, excluir ou adicionar servidores."
     :"Tabela travada. Clique com o botão direito do mouse e informe a senha para editar.";
   ajusta();
@@ -198,6 +187,7 @@ function ajusta(){
   if(h>d+1)t.style.zoom=Math.max(.5,d/h*.995);
 }
 addEventListener("resize",ajusta);
+$("fag").onchange=e=>{filtroAg=e.target.value;render()};
 $("dias").onclick=e=>{const b=e.target.closest("button");if(!b)return;filtroDia=filtroDia===b.dataset.d?"":b.dataset.d;render()};
 document.querySelector("thead").onclick=e=>{const c=e.target.dataset.c;if(!c)return;
   if(ord.c!==c)ord={c,d:1};else if(ord.d===1)ord.d=-1;else ord={c:"",d:1};render()};
@@ -225,9 +215,11 @@ tb.addEventListener("click",async e=>{
   const a=find(t);a.dias=a.dias.filter(d=>d!==t.dataset.rmd);await salvar();render();
 });
 document.querySelector(".wrap").addEventListener("contextmenu",async e=>{
-  if(modoLocal)return;
   e.preventDefault();
-  const row=e.target.closest("tr[data-id]"),id=row?row.dataset.id:"",x=e.clientX,y=e.clientY;
+  let row=e.target.closest("tr[data-id]");
+  const outra=row&&apms.find(a=>a.id===row.dataset.id);
+  if(outra&&outra.ag!==AG){st("Linha da "+outra.ag+": edite em escala"+outra.ag+".html");setTimeout(()=>st(""),3000);return}
+  const id=row?row.dataset.id:"",x=e.clientX,y=e.clientY;
   if(!podeEditar&&!await desbloquear())return;
   menu.innerHTML=(row?`<button data-act="edit" data-id="${id}">Editar servidor</button><button class="d" data-act="del" data-id="${id}">Excluir servidor</button>`:"")+`<button data-act="add">Adicionar APM</button><button data-act="lock">Bloquear edição</button>`;
   menu.style.display="block";
@@ -286,7 +278,7 @@ document.addEventListener("click",e=>{
 });
 document.addEventListener("keydown",e=>{if(e.key==="Escape"){menu.style.display="none";endEdit()}});
 addEventListener("scroll",()=>menu.style.display="none",true);
-document.addEventListener("visibilitychange",()=>{if(!document.hidden&&!editId&&!modoLocal)carregar()});
+document.addEventListener("visibilitychange",()=>{if(!document.hidden&&!editId)carregar()});
 
 /* PDF e planilha */
 $("pdf").onclick=async()=>{await endEdit();window.print()};
@@ -298,29 +290,28 @@ $("xls").onclick=async()=>{
     return`<tr><td ${s}>${esc(a.ag)}</td><td ${s}>${esc(a.nome)}</td><td ${s}>${esc(a.email)}</td><td ${s}>${esc(a.contato)}</td><td ${s}>${esc(a.siape)}</td><td ${s}>${br(a.dias)}</td></tr>`}).join("");
   const html=`<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><style>td,th{border:.5pt solid #222;text-align:center;vertical-align:middle;mso-number-format:"\\@"}</style></head><body><table>
 <tr><th colspan="6" style="background:#1d4e89;color:#fff;font-size:18pt;height:40pt">Escala de Servidores</th></tr>
-<tr><th colspan="6" style="background:#1d4e89;color:#fff;letter-spacing:1pt">Pesquisas Econômicas Anuais - ABT</th></tr>
+<tr><th colspan="6" style="background:#1d4e89;color:#fff;letter-spacing:1pt;font-style:italic;font-weight:bold">Pesquisas Econômicas Anuais - ABT</th></tr>
 <tr>${["Agência","APM","e-mail","Contato","SIAPE","Dia Agência"].map(h=>`<th style="background:#0b2545;color:#fff">${h}</th>`).join("")}</tr>${rows}
 <tr><td colspan="6" style="border:0;text-align:right;font-size:9pt">${esc(quando())}</td></tr></table></body></html>`;
   baixar("\ufeff"+html,"application/vnd.ms-excel;charset=utf-8","escala-servidores-ABT.xls");
 };
 
-/* Início: login obrigatório, permissões e dados */
+/* Início: login obrigatório (sem login, volta para o index.html e a página nunca é exibida) */
+addEventListener("pageshow",e=>{if(e.persisted)location.reload()});
+sb.auth.onAuthStateChange(ev=>{if(ev==="SIGNED_OUT")sair()});
 (async()=>{
-  const liberar=()=>{const g=$("guarda-css");if(g)g.remove()};
   try{
     const{data:{session}}=await sb.auth.getSession();
-    if(!session){
-      if(noGit)return location.replace("index.html");
-      modoLocal=true;apms=semente();liberar();render();return;
-    }
+    if(!session)return sair();
     const{data:p}=await sb.from("perfis").select("aprovado").eq("id",session.user.id).maybeSingle();
-    if(!p||p.aprovado!==true)return location.replace("index.html");
+    if(!p||p.aprovado!==true)return sair();
     usuario=session.user.email||"";
     const{data:ed}=await sb.from("escala_editores").select("email").maybeSingle();
     proprietario=!!ed;$("pw").style.display=proprietario?"":"none";
     await carregar();
-    liberar();render();
-  }catch(e){liberar();st("Erro de conexão");render()}
+    const g=$("guarda-css");if(g)g.remove();
+    render();
+  }catch(e){sair()}
 })();
 </script>
 </body>
