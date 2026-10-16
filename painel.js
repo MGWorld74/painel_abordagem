@@ -655,8 +655,9 @@
   // Para incluir outra agência, basta acrescentar o nome na lista abaixo.
   const AGENCIAS_ESCALA = ['ABT', 'AJA'];
 
+  // Cada agência tem a sua página: escalaABT.html, escalaAJA.html, escala<SIGLA>.html ...
   function abrirEscala(agencia) {
-    const url = './escala.html?agencia=' + encodeURIComponent(agencia);
+    const url = './escala' + agencia + '.html';
     try {
       window.open(url);
     } catch (e) {
