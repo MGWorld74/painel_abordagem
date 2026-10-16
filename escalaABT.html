@@ -36,8 +36,14 @@ a.btn{color:inherit;text-decoration:none;display:inline-block}
 table{border-collapse:collapse;margin:0 auto;flex:none;width:auto;font-size:14px}
 .duas{display:flex;flex-direction:column;gap:14px;align-items:center;flex:none;width:max-content}
 .duas table{margin:0}
-#t2 th{padding:5px 10px}
-#t2 td{text-align:left;min-width:190px}
+#t2 th{padding:5px 10px;border:0;border-left:1px solid rgba(255,255,255,.5)}
+#t2 th:first-child{border-left:0}
+#t2 td{text-align:left;min-width:190px;border:0;border-top:1px solid #dbe2ea;border-left:2px solid #9db0c6}
+#t2 td:first-child{border-left:1px solid #0b2545}
+#t2 td:last-child{border-right:1px solid #0b2545}
+#t2 tbody tr:last-child td{border-bottom:1px solid #0b2545}
+#t2 td.f{box-shadow:inset 0 0 0 2px #fff}
+#t2 td.f.fd{box-shadow:inset 0 0 0 2px #fff,inset 0 0 0 9999px rgba(255,255,255,.35)}
 #t2 select{width:100%;font:inherit;padding:2px;margin:0}
 #ovs{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;z-index:50}
 #ovs .dlg{background:#fff;color:#111;border-radius:6px;padding:16px 18px;display:flex;flex-direction:column;gap:10px;min-width:270px;box-shadow:0 8px 30px rgba(0,0,0,.35)}
@@ -86,7 +92,7 @@ td input:focus,td select:focus{outline:2px solid #1d4e89}
 <body>
 <div class="painel">
 <div class="faixa">
-  <div class="fl"><a class="btn" href="index.html">← Voltar</a></div>
+  <div class="fl"><a class="btn" id="voltar" href="painel.html">← Voltar</a></div>
   <div class="fc"><div class="t1">Escala de Servidores</div><div class="t2">Pesquisas Econômicas Anuais - <b>ABT</b></div></div>
 </div>
 <div class="dias" id="dias"></div>
@@ -212,7 +218,7 @@ function render2(){
   $("h2").innerHTML=DIAS.map(d=>`<th${filtroDia===d?' class="fd"':""}>${d}</th>`).join("");
   let h="";
   for(let i=0;i<n;i++)h+="<tr>"+DIAS.map((d,j)=>{const a=col[j][i];
-    return`<td data-d="${d}" data-i="${i}"${a?` data-id="${a.id}"`:""}${filtroDia===d?' class="fd"':""}${a?` style="background:${a.cor};color:${txt(a.cor)}"`:""}>${a?esc(a.nome||"(sem nome)"):""}</td>`}).join("")+"</tr>";
+    return`<td data-d="${d}" data-i="${i}"${a?` data-id="${a.id}"`:""} class="${a?"f ":""}${filtroDia===d?"fd":""}"${a?` style="background:${a.cor};color:${txt(a.cor)}"`:""}>${a?esc(a.nome||"(sem nome)"):""}</td>`}).join("")+"</tr>";
   $("tb2").innerHTML=h;
 }
 /* Transforma a célula da tabela 2 numa lista com todos os APMs da tabela 1 */
@@ -340,6 +346,14 @@ document.addEventListener("click",e=>{
 document.addEventListener("keydown",e=>{if(e.key==="Escape"){menu.style.display="none";endEdit();render2()}});
 addEventListener("scroll",()=>menu.style.display="none",true);
 document.addEventListener("visibilitychange",()=>{if(!document.hidden&&!editId&&!modoLocal)carregar()});
+
+/* Voltar: retorna à página que já estava aberta (não abre outra cópia) */
+$("voltar").addEventListener("click",e=>{
+  e.preventDefault();
+  if(history.length>1){history.back();return}
+  window.close();
+  setTimeout(()=>{let r="";try{const u=new URL(document.referrer);if(u.origin===location.origin)r=u.href}catch(_){}location.href=r||"painel.html"},400);
+});
 
 /* Início: login obrigatório, permissões e dados */
 (async()=>{
