@@ -651,18 +651,23 @@
       location.href = './Checklist.pdf';
     }
   }
-  function abrirTelegrama(arquivo) {
+  // Agências disponíveis para a Escala de Servidores.
+  // Para incluir outra agência, basta acrescentar o nome na lista abaixo.
+  const AGENCIAS_ESCALA = ['ABT', 'AJA'];
+
+  function abrirEscala(agencia) {
+    const url = './escala.html?agencia=' + encodeURIComponent(agencia);
     try {
-      window.open('./' + arquivo);
+      window.open(url);
     } catch (e) {
-      location.href = './' + arquivo;
+      location.href = url;
     }
   }
-  function textoTelegrama() {
-    const anterior = document.getElementById('modalEscolhaTelegrama');
+  function escalaServidores() {
+    const anterior = document.getElementById('modalEscolhaAgencia');
     if (anterior) anterior.remove();
     const overlay = document.createElement('div');
-    overlay.id = 'modalEscolhaTelegrama';
+    overlay.id = 'modalEscolhaAgencia';
     overlay.style.cssText = [
       'position:fixed',
       'inset:0',
@@ -675,13 +680,14 @@
     ].join(';');
     overlay.setAttribute('role', 'dialog');
     overlay.setAttribute('aria-modal', 'true');
-    overlay.setAttribute('aria-label', 'Escolher o Telegrama');
+    overlay.setAttribute('aria-label', 'Escolher a agência');
     overlay.innerHTML =
       '<div class="tg-caixa">' +
-      '<p class="tg-titulo">Qual telegrama deseja abrir?</p>' +
-      '<button type="button" class="tg-opcao" data-arquivo="telegramaCOBRANCA.html">📝 Telegrama COBRANÇA</button>' +
-      '<button type="button" class="tg-opcao" data-arquivo="telegramaINADIMPLENCIA.html">📝 Telegrama INADIMPLÊNCIA</button>' +
-      '<div class="tg-rodape"><button id="modalEscolhaTelegramaCancelar" type="button" class="tg-cancelar">Cancelar</button></div>' +
+      '<p class="tg-titulo">Escala de Servidores: qual agência deseja abrir?</p>' +
+      AGENCIAS_ESCALA.map(function (ag) {
+        return '<button type="button" class="tg-opcao" data-agencia="' + ag + '">🏢 ' + ag + '</button>';
+      }).join('') +
+      '<div class="tg-rodape"><button id="modalEscolhaAgenciaCancelar" type="button" class="tg-cancelar">Cancelar</button></div>' +
       '</div>';
     document.body.appendChild(overlay);
     function fechar() {
@@ -692,14 +698,14 @@
       if (e.key === 'Escape') fechar();
     }
     document.addEventListener('keydown', aoTeclar);
-    overlay.querySelectorAll('[data-arquivo]').forEach(function (btn) {
+    overlay.querySelectorAll('[data-agencia]').forEach(function (btn) {
       btn.addEventListener('click', function () {
-        const arquivo = btn.getAttribute('data-arquivo');
+        const agencia = btn.getAttribute('data-agencia');
         fechar();
-        abrirTelegrama(arquivo);
+        abrirEscala(agencia);
       });
     });
-    document.getElementById('modalEscolhaTelegramaCancelar').addEventListener('click', fechar);
+    document.getElementById('modalEscolhaAgenciaCancelar').addEventListener('click', fechar);
     overlay.addEventListener('click', function (e) {
       if (e.target === overlay) fechar();
     });
@@ -2433,14 +2439,6 @@
     }
   }
 
-  function gerarRotas() {
-    try {
-      window.open('./gerarotas.html');
-    } catch (e) {
-      location.href = './gerarotas.html';
-    }
-  }
-
   // ============================================================
   // BOTÃO "ROTAS" (lista de links nomeados, salvos pelo usuário — quantidade livre)
   // Botão direito: gerenciar (nome + link) das rotas, com botão "Acrescentar rota"
@@ -3235,7 +3233,7 @@
     correios: correios,
     oficioCorreios: oficioCorreios,
     cronogramaEconomicas: cronogramaEconomicas,
-    textoTelegrama: textoTelegrama,
+    escalaServidores: escalaServidores,
     protocoloOcorrencias: protocoloOcorrencias,
     devedorUniao: devedorUniao,
     driveIBGE: driveIBGE,
@@ -3244,7 +3242,6 @@
     formatarCNPJ: formatarCNPJ,
     formatarTelefoneMultiplo: formatarTelefoneMultiplo,
     oficioInadimplencia: oficioInadimplencia,
-    gerarRotas: gerarRotas,
     in2119RFB: in2119RFB,
     importarPlanilha: importarPlanilha,
     irParaPaginaCNPJ: irParaPaginaCNPJ,

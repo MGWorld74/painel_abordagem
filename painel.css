@@ -509,7 +509,7 @@ body.dark #modalConfirm > div { background: #1e2a3a !important; color: #e8eaf0 !
 body.dark #modalConfirm p { color: #e8eaf0 !important; }
 body.dark #modalConfirmNao { background: #2a3a4e !important; color: #c0c8d8 !important; border-color: #3a4e6a !important; }
 body.dark #modalConfirmSim { background: var(--cor-erro) !important; color: #fff !important; }
-/* Modal de escolha do Telegrama (COBRANÇA / INADIMPLÊNCIA) */
+/* Modal de escolha da agência (Escala Servidores) — classes .tg-* */
 .menu-consultar-cnpj { position: relative; display: inline-block; }
 .menu-consultar-lista { position: absolute; top: calc(100% + 4px); right: 0; z-index: 1000; min-width: 190px; background: #fff; border: 1px solid #ccc; border-radius: 8px; box-shadow: 0 6px 20px rgba(0,0,0,.2); padding: 8px; display: flex; flex-direction: column; gap: 6px; }
 .menu-consultar-lista[hidden] { display: none; }
